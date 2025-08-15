@@ -9,9 +9,9 @@ A modern and customizable Android view for creating interactive fill-in-the-blan
 
 ## 📱 Screenshots
 
-| Main Interface | Input State | Validation |
-|:---:|:---:|:---:|
-| ![Main Screen](https://via.placeholder.com/300x600/E3F2FD/1976D2?text=Fill+In+Blank+View) | ![Input State](https://via.placeholder.com/300x600/F3E5F5/7B1FA2?text=User+Input+Mode) | ![Validation](https://via.placeholder.com/300x600/E8F5E8/388E3C?text=Validation+Result) |
+|                                 Main Interface                                 | Input State | Validation |
+|:------------------------------------------------------------------------------:|:-----------:|:----------:|
+| <img src="images/image1.jpg?raw=true" width="200" style="border-radius: 8px;"> | <img src="images/image1.jpg?raw=true" width="200" style="border-radius: 8px;"> | <img src="images/image1.jpg?raw=true" width="200" style="border-radius: 8px;"> |
 
 ## ✨ Key Features
 
