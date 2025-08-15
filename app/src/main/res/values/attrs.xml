@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="FillInBlankView">
+        <!-- Text content with {{blank}} placeholders -->
+        <attr name="fib_text" format="string" />
+
+        <!-- Answers for the blanks (JSON array format) -->
+        <attr name="fib_answers" format="string" />
+
+        <!-- Text appearance -->
+        <attr name="fib_textSize" format="dimension" />
+        <attr name="fib_textColor" format="color" />
+
+        <!-- EditText appearance -->
+        <attr name="fib_editTextColor" format="color" />
+        <attr name="fib_underlineColor" format="color" />
+        <attr name="fib_underlineWidth" format="dimension" />
+        <attr name="fib_underlineFocusedWidth" format="dimension" />
+        <attr name="fib_dashLength" format="dimension" />
+        <attr name="fib_dashGap" format="dimension" />
+
+        <!-- EditText sizing -->
+        <attr name="fib_minEditTextWidth" format="dimension" />
+        <attr name="fib_editTextPadding" format="dimension" />
+        <attr name="fib_extraWidthPadding" format="dimension" />
+
+        <!-- Validation colors -->
+        <attr name="fib_correctColor" format="color" />
+        <attr name="fib_incorrectColor" format="color" />
+
+        <!-- Animation -->
+        <attr name="fib_enableShakeAnimation" format="boolean" />
+        <attr name="fib_autoFocusFirst" format="boolean" />
+
+        <!-- Layout -->
+        <attr name="fib_itemSpacing" format="dimension" />
+
+        <!-- Placeholder/Hint settings -->
+        <attr name="fib_showHint" format="boolean" />
+        <attr name="fib_hintText" format="string" />
+        <attr name="fib_hintTextArray" format="string" />
+
+        <!-- Underline visibility -->
+        <attr name="fib_hideUnderlineWhenFilled" format="boolean" />
+
+        <attr name="fib_enableInput" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="RubyTextView">
+        <!-- Ruby text size ratio compared to base text (0.0 - 1.0) -->
+        <attr name="rubyTextSizeRatio" format="float" />
+
+        <!-- Ruby background corner radius -->
+        <attr name="rubyBackgroundCornerRadius" format="dimension" />
+
+        <!-- Ruby text color -->
+        <attr name="rubyTextColor" format="color" />
+
+        <!-- Spacing between ruby text and base text -->
+        <attr name="rubyLineSpacing" format="dimension" />
+
+        <!-- Ruby text typeface -->
+        <attr name="rubyTypeface" format="reference" />
+
+        <!-- Enable ruby background for debugging -->
+        <attr name="enableRubyBackground" format="boolean" />
+
+        <!-- Ruby background color -->
+        <attr name="rubyBackgroundColor" format="color" />
+
+        <!-- Ruby text alignment -->
+        <attr name="rubyAlignment" format="enum">
+            <enum name="start" value="0" />
+            <enum name="center" value="1" />
+            <enum name="end" value="2" />
+            <enum name="distribute" value="3" />
+        </attr>
+    </declare-styleable>
+</resources>
