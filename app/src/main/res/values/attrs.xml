@@ -45,6 +45,7 @@
         <attr name="fib_hideUnderlineWhenFilled" format="boolean" />
 
         <attr name="fib_enableInput" format="boolean" />
+        <attr name="fib_autoExpandEditText" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="RubyTextView">

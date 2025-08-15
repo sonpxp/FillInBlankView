@@ -78,6 +78,7 @@ class FillInBlankView @JvmOverloads constructor(
         private const val LINE_MARGIN = 2f
         private const val SHAKE_DURATION = 50L
         private const val SHAKE_AMPLITUDE = 10f
+        private const val AUTO_EXPAND_PADDING = 20 // Padding thêm khi auto expand
     }
 
     private var configuration = FillInBlankConfiguration()
@@ -112,11 +113,8 @@ class FillInBlankView @JvmOverloads constructor(
         var hintText: String = DEFAULT_HINT,
         var hintTextArray: List<String> = emptyList(),
         var hideUnderlineWhenFilled: Boolean = false,
-    ) {
-        val hintTextArrayMapIndex: List<String> = answers.mapIndexed { index, _ ->
-            "(${index + 1})"
-        }
-    }
+        var autoExpandEditText: Boolean = true, // Thêm option mới
+    )
 
     init {
         orientation = VERTICAL
@@ -201,12 +199,15 @@ class FillInBlankView @JvmOverloads constructor(
                     hideUnderlineWhenFilled = getBoolean(
                         R.styleable.FillInBlankView_fib_hideUnderlineWhenFilled,
                         false
+                    ),
+                    autoExpandEditText = getBoolean(
+                        R.styleable.FillInBlankView_fib_autoExpandEditText,
+                        true
                     )
                 )
             }
         }
     }
-
 
     /**
      * Setup the main view structure
@@ -329,6 +330,28 @@ class FillInBlankView @JvmOverloads constructor(
     }
 
     /**
+     * Calculate dynamic width for EditText based on current text
+     */
+    private fun calculateDynamicWidth(currentText: String): Int {
+        if (!configuration.autoExpandEditText) {
+            return LayoutParams.WRAP_CONTENT
+        }
+
+        val paint = Paint().apply {
+            textSize = configuration.textSize
+            typeface = Typeface.DEFAULT
+        }
+
+        val textWidth = if (currentText.isEmpty()) {
+            configuration.minEditTextWidth
+        } else {
+            (paint.measureText(currentText) + configuration.extraWidthPadding + AUTO_EXPAND_PADDING).toInt()
+        }
+
+        return maxOf(textWidth, configuration.minEditTextWidth)
+    }
+
+    /**
      * Setup EditText layout parameters
      */
     private fun EditText.setupEditTextLayout(width: Int, index: Int) {
@@ -403,11 +426,29 @@ class FillInBlankView @JvmOverloads constructor(
             override fun afterTextChanged(s: Editable?) {
                 onAnswersChangedListener?.invoke(getAnswers())
                 updateUnderlineState(this@setupEditTextListeners, hasFocus())
+
+                // Auto expand EditText width nếu được bật
+                if (configuration.autoExpandEditText) {
+                    updateEditTextWidth(this@setupEditTextListeners)
+                }
             }
         })
 
         setOnEditorActionListener { _, actionId, _ ->
             handleEditorAction(actionId, tag as Int)
+        }
+    }
+
+    /**
+     * Update EditText width based on current content
+     */
+    private fun updateEditTextWidth(editText: EditText) {
+        val newWidth = calculateDynamicWidth(editText.text.toString())
+        val layoutParams = editText.layoutParams as FlexboxLayout.LayoutParams
+
+        if (layoutParams.width != newWidth) {
+            layoutParams.width = newWidth
+            editText.layoutParams = layoutParams
         }
     }
 
@@ -575,6 +616,8 @@ class FillInBlankView @JvmOverloads constructor(
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
     private fun Float.dpToPx(): Float = this * resources.displayMetrics.density
 
+    // ========== PUBLIC API METHODS ==========
+
     /**
      * Set text with {{blank}} placeholders
      * @param text Text containing {{blank}} placeholders
@@ -598,7 +641,7 @@ class FillInBlankView @JvmOverloads constructor(
      * @param text Text containing {{blank}} placeholders
      * @param answers List of correct answers in order
      */
-    fun setBlankText(text: String, answers: List<String>) {
+    fun setContent(text: String, answers: List<String>) {
         configuration = configuration.copy(text = text, answers = answers)
         setupView()
     }
@@ -654,7 +697,13 @@ class FillInBlankView @JvmOverloads constructor(
      * Clear all user answers
      */
     fun clearAnswers() {
-        editTexts.forEach { it.setText("") }
+        editTexts.forEach { editText ->
+            editText.setText("")
+            // Reset width về mức tối thiểu khi clear
+            if (configuration.autoExpandEditText) {
+                updateEditTextWidth(editText)
+            }
+        }
     }
 
     /**
@@ -726,12 +775,8 @@ class FillInBlankView @JvmOverloads constructor(
      * Set array of placeholder texts for each blank
      * @param placeholders List of hint texts. If only 1 element, used for all blanks
      */
-    fun setHintTextArray(placeholders: List<String>, defValue: Boolean = true) {
-        configuration = if (defValue && placeholders.isEmpty()) {
-            configuration.copy(hintTextArray = configuration.hintTextArrayMapIndex)
-        } else {
-            configuration.copy(hintTextArray = placeholders)
-        }
+    fun setHintTextArray(placeholders: List<String>) {
+        configuration = configuration.copy(hintTextArray = placeholders)
         setupView()
     }
 
@@ -745,6 +790,35 @@ class FillInBlankView @JvmOverloads constructor(
             updateUnderlineState(editText, editText.hasFocus())
         }
     }
+
+    /**
+     * Enable/disable auto expand EditText when typing
+     * @param enable True to enable auto expand, false to use fixed width
+     */
+    fun setAutoExpandEditText(enable: Boolean) {
+        configuration = configuration.copy(autoExpandEditText = enable)
+
+        // Update all existing EditTexts
+        editTexts.forEach { editText ->
+            if (enable) {
+                updateEditTextWidth(editText)
+            } else {
+                // Reset về width ban đầu dựa trên answer
+                val index = editText.tag as Int
+                val answer = configuration.answers.getOrNull(index) ?: ""
+                val originalWidth = calculateEditTextWidth(answer)
+                val layoutParams = editText.layoutParams as FlexboxLayout.LayoutParams
+                layoutParams.width = originalWidth
+                editText.layoutParams = layoutParams
+            }
+        }
+    }
+
+    /**
+     * Check if auto expand is currently enabled
+     * @return True if auto expand is enabled
+     */
+    fun isAutoExpandEnabled(): Boolean = configuration.autoExpandEditText
 
     /**
      * Enable/disable input for all EditTexts

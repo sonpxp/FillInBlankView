@@ -132,31 +132,32 @@ val isAllCorrect = fillInBlankView.validateAnswers()
 
 ## 📋 Attributes Reference
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `fib_text` | String | `""` | Text content with `{{blank}}` placeholders |
-| `fib_answers` | String Array (JSON) | `[]` | Correct answers for validation |
-| `fib_textSize` | Dimension | `16sp` | Text size for both labels and inputs |
+| Attribute | Type | Default   | Description |
+|-----------|------|-----------|-------------|
+| `fib_text` | String | `""`      | Text content with `{{blank}}` placeholders |
+| `fib_answers` | String Array (JSON) | `[]`      | Correct answers for validation |
+| `fib_textSize` | Dimension | `16sp`    | Text size for both labels and inputs |
 | `fib_textColor` | Color | `#000000` | Color for static text |
 | `fib_editTextColor` | Color | `#0000FF` | Color for input text |
 | `fib_underlineColor` | Color | `#0000FF` | Color for input underlines |
-| `fib_underlineWidth` | Dimension | `1dp` | Width of normal underline |
-| `fib_underlineFocusedWidth` | Dimension | `2dp` | Width of focused underline |
-| `fib_dashLength` | Dimension | `6dp` | Length of dash segments |
-| `fib_dashGap` | Dimension | `3dp` | Gap between dash segments |
-| `fib_minEditTextWidth` | Dimension | `60dp` | Minimum width for input fields |
-| `fib_editTextPadding` | Dimension | `4dp` | Padding inside input fields |
-| `fib_extraWidthPadding` | Dimension | `16dp` | Extra width padding for inputs |
+| `fib_underlineWidth` | Dimension | `1dp`     | Width of normal underline |
+| `fib_underlineFocusedWidth` | Dimension | `2dp`     | Width of focused underline |
+| `fib_dashLength` | Dimension | `6dp`     | Length of dash segments |
+| `fib_dashGap` | Dimension | `3dp`     | Gap between dash segments |
+| `fib_minEditTextWidth` | Dimension | `60dp`    | Minimum width for input fields |
+| `fib_editTextPadding` | Dimension | `4dp`     | Padding inside input fields |
+| `fib_extraWidthPadding` | Dimension | `16dp`    | Extra width padding for inputs |
 | `fib_correctColor` | Color | `#00FF00` | Color for correct validation |
 | `fib_incorrectColor` | Color | `#FF0000` | Color for incorrect validation |
-| `fib_enableShakeAnimation` | Boolean | `true` | Enable shake animation for errors |
-| `fib_autoFocusFirst` | Boolean | `true` | Auto-focus first input on creation |
-| `fib_enableInput` | Boolean | `true` | Enable/disable user input |
-| `fib_itemSpacing` | Dimension | `2dp` | Spacing between view elements |
-| `fib_showHint` | Boolean | `true` | Show placeholder hints |
-| `fib_hintText` | String | `"..."` | Default hint text for all inputs |
-| `fib_hintTextArray` | String Array (JSON) | `[]` | Individual hints for each input |
-| `fib_hideUnderlineWhenFilled` | Boolean | `false` | Hide underline when input has text |
+| `fib_enableShakeAnimation` | Boolean | `true`    | Enable shake animation for errors |
+| `fib_autoFocusFirst` | Boolean | `true`    | Auto-focus first input on creation |
+| `fib_enableInput` | Boolean | `true`    | Enable/disable user input |
+| `fib_itemSpacing` | Dimension | `2dp`     | Spacing between view elements |
+| `fib_showHint` | Boolean | `true`    | Show placeholder hints |
+| `fib_hintText` | String | `"..."`   | Default hint text for all inputs |
+| `fib_hintTextArray` | String Array (JSON) | `[]`      | Individual hints for each input |
+| `fib_hideUnderlineWhenFilled` | Boolean | `false`   | Hide underline when input has text |
+| `autoExpandEditText` | Boolean | `true`    | Enable/disable auto expand EditText when typing |
 
 ## 🎯 Public Methods
 
