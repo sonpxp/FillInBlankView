@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
         // Nền cho words ở khu vực arranged (trên) - cyan
         setArrangedWordBackground(R.drawable.img_box_cyan)
         // Placeholder (tuỳ chọn)
-        setPlaceholderBackground(R.drawable.img_box_grey)
+        setPlaceholderBackground(R.drawable.img_box_placeholder )
         // Màu chữ theo màu nền
         setAvailableTextColorRes(R.color.grey_text_color)
         setArrangedTextColorRes(R.color.cyan_text_color)
