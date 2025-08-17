@@ -2,4 +2,53 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="grey_text_color">#ACACAC</color>
+    <color name="cyan_text_color">#2196F3</color>
+    <color name="pink_text_color">#FD5673</color>
+
+    <!-- Text Colors -->
+    <color name="text_available_default">#333333</color>
+    <color name="text_arranged_default">#FFFFFF</color>
+    <color name="missing_text_color">#FFFFFF</color>
+
+    <!-- Background Colors -->
+    <color name="bg_available_default">#DCDEE9</color>
+    <color name="bg_arranged_default">#00BCD4</color>
+    <color name="bg_placeholder_default">#F5F5F5</color>
+
+    <!-- Stroke Colors -->
+    <color name="stroke_default">#DEDEDE</color>
+    <color name="stroke_placeholder_default">#E0E0E0</color>
+
+    <!-- Divider Color -->
+    <color name="divider_default">#E0E0E0</color>
+
+    <!-- Additional Color Variants -->
+    <color name="text_available_dark">#1A1A1A</color>
+    <color name="text_arranged_dark">#FFFFFF</color>
+
+    <color name="bg_available_light">#F0F0F5</color>
+    <color name="bg_available_primary">#4CAF50</color>
+    <color name="bg_available_secondary">#FF9800</color>
+
+    <color name="bg_arranged_primary">#2196F3</color>
+    <color name="bg_arranged_success">#4CAF50</color>
+    <color name="bg_arranged_warning">#FF9800</color>
+    <color name="bg_arranged_error">#F44336</color>
+
+    <!-- Neutral Colors -->
+    <color name="neutral_100">#F5F5F5</color>
+    <color name="neutral_200">#EEEEEE</color>
+    <color name="neutral_300">#E0E0E0</color>
+    <color name="neutral_400">#BDBDBD</color>
+    <color name="neutral_500">#9E9E9E</color>
+    <color name="neutral_600">#757575</color>
+    <color name="neutral_700">#616161</color>
+    <color name="neutral_800">#424242</color>
+    <color name="neutral_900">#212121</color>
+
+    <color name="bg_correct_default">#00BCD4</color> <!-- Cyan - img_box_cyan equivalent -->
+    <color name="bg_incorrect_default">#E91E63</color> <!-- Pink - img_box_pink equivalent -->
+    <color name="bg_missing_default">#E91E63</color> <!-- Pink - img_box_pink equivalent -->
 </resources>

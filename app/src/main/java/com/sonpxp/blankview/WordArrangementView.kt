@@ -4,128 +4,339 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.JustifyContent
 
+/**
+ * Custom view for word arrangement games
+ * Features:
+ * - Drag words from available area to arranged area
+ * - Smooth animations between states with improved layout transitions
+ * - Customizable styling and backgrounds
+ * - Support for empty words with placeholders
+ */
 class WordArrangementView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
-    private val arrangedWordsLayout: FlexboxLayout
-    private val dividerView: View
-    private val availableWordsLayout: FlexboxLayout
+    // UI Components
+    private lateinit var arrangedWordsLayout: FlexboxLayout
+    private lateinit var dividerView: View
+    private lateinit var availableWordsLayout: FlexboxLayout
+
+    // Data
     private val wordItems = mutableListOf<WordItem>()
     private val arrangedWords = mutableListOf<String>()
+    private var nextItemId = 0
 
-    // Animation duration
+    // Configuration
+    private var allowEmptyWords = true
+    private val itemSize = 60.dpToPx()
     private val animationDuration = 300L
+    private val layoutAnimationDuration = 250L
 
-    // Fixed square sizing
-    private val itemSize = 60.dpToPx()  // Fixed 60x60 size for all items
+    // Animation Configuration
+    private var enableSmoothRemovalAnimation = true
+    private var enableWordMovementAnimation = true
 
-    // Configuration options
-    private var allowEmptyWords = true  // Allow empty/whitespace words by default
-    private var nextItemId = 0  // Auto-increment ID for unique identification
+    // Styling Configuration
+    private var availableBackgroundRes: Int? = null
+    private var arrangedBackgroundRes: Int? = null
+    private var placeholderBackgroundRes: Int? = null
+    private var availableTextColorRes = R.color.text_available_default
+    private var arrangedTextColorRes = R.color.text_arranged_default
+    private var textIsBold = true
 
-    data class WordItem(
-        val id: Int,  // Unique identifier for each item
+    // Review Configuration
+    private var correctBackgroundRes: Int? = null
+    private var incorrectBackgroundRes: Int? = null
+    private var missingBackgroundRes: Int? = null
+    private var correctTextColorRes = R.color.cyan_text_color
+    private var incorrectTextColorRes = R.color.pink_text_color
+    private var missingTextColorRes = R.color.missing_text_color
+    private var isInReviewMode = false
+    private var reviewMode = ReviewMode.INDIVIDUAL_MATCHING
+
+    /**
+     * Data class representing a word item in the game
+     */
+    private data class WordItem(
+        val id: Int,
         val text: String,
-        val displayText: String,  // What to show (for empty words)
+        val displayText: String,
         val originalView: TextView,
         var placeholderView: TextView? = null,
         var isArranged: Boolean = false,
-        var isAnimating: Boolean = false  // Prevent multiple animations
+        var isAnimating: Boolean = false
     )
 
-    init {
-        orientation = VERTICAL
-        layoutParams = LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT
-        )
-        setPadding(16, 16, 16, 16)
+    /**
+     * Helper data class for processed words
+     */
+    private data class ProcessedWord(
+        val id: Int,
+        val originalText: String,
+        val displayText: String
+    )
 
-        // Create arranged words area (top) with flex wrap
-        arrangedWordsLayout = FlexboxLayout(context).apply {
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT
-            ).apply {
+    /**
+     * Review mode options
+     */
+    enum class ReviewMode {
+        INDIVIDUAL_MATCHING,  // Each word shows correct/incorrect individually
+        ALL_OR_NOTHING       // All words red if any mistake, all correct if perfect
+    }
+
+    /**
+     * Review result types for individual words
+     */
+    enum class WordResult {
+        CORRECT,    // User word matches correct word at same position
+        INCORRECT,  // User word doesn't match correct word at same position
+        MISSING     // User didn't provide word but correct answer has one
+    }
+
+    init {
+        setupViews()
+        setupLayout()
+    }
+
+    // ==========================
+    // PUBLIC API METHODS
+    // ==========================
+
+    /**
+     * Set the list of words to be arranged
+     */
+    fun setWords(words: List<String>, allowEmpty: Boolean = true) {
+        this.allowEmptyWords = allowEmpty
+        clearViews()
+
+        val processedWords = processWords(words)
+        val shuffledWords = processedWords.shuffled()
+
+        createWordViews(shuffledWords)
+    }
+
+    /**
+     * Get the currently arranged words in order
+     */
+    fun getArrangedWords(): List<String> = arrangedWords.toList()
+
+    /**
+     * Get arranged words with their IDs
+     */
+    fun getArrangedWordsWithIds(): List<Pair<Int, String>> {
+        return wordItems.filter { it.isArranged }.map { it.id to it.text }
+    }
+
+    /**
+     * Clear all arranged words, moving them back to available area
+     */
+    fun clearArrangedWords() {
+        wordItems
+            .filter { it.isArranged && !it.isAnimating }
+            .forEach { wordItem ->
+                findWordViewInLayout(arrangedWordsLayout, wordItem.id)?.let { wordView ->
+                    moveWordBack(wordView, wordItem.id)
+                }
+            }
+    }
+
+    /**
+     * Check if all words have been arranged
+     */
+    fun isComplete(): Boolean = arrangedWords.size == wordItems.size
+
+    /**
+     * Review the arranged words against correct answers
+     * @param userAnswers The words user selected previously (from server)
+     * @param correctAnswers The correct answer sequence (full list to show in available area)
+     * @param mode Review mode - individual matching or all-or-nothing
+     */
+    fun reviewResults(
+        userAnswers: List<String>,
+        correctAnswers: List<String>,
+        mode: ReviewMode = ReviewMode.INDIVIDUAL_MATCHING
+    ) {
+        isInReviewMode = true
+        reviewMode = mode
+
+        // Clear current arrangement
+        clearViews()
+
+        // Set up available area with correct answers, animate user selections
+        setWordsForReview(userAnswers, correctAnswers)
+
+        // Animate only user selected words flying up
+        animateUserSelectionsToReview(userAnswers, correctAnswers)
+    }
+
+    /**
+     * Exit review mode and return to normal mode
+     */
+    fun exitReviewMode() {
+        isInReviewMode = false
+        clearViews()
+    }
+
+    // ==========================
+    // STYLING METHODS
+    // ==========================
+
+    fun setAvailableWordBackground(drawableRes: Int) {
+        availableBackgroundRes = drawableRes
+    }
+
+    fun setArrangedWordBackground(drawableRes: Int) {
+        arrangedBackgroundRes = drawableRes
+    }
+
+    fun setPlaceholderBackground(drawableRes: Int) {
+        placeholderBackgroundRes = drawableRes
+    }
+
+    fun setAvailableTextColorRes(colorRes: Int) {
+        availableTextColorRes = colorRes
+    }
+
+    fun setArrangedTextColorRes(colorRes: Int) {
+        arrangedTextColorRes = colorRes
+    }
+
+    fun setTextStyle(isBold: Boolean = false) {
+        textIsBold = isBold
+    }
+
+    fun setCorrectBackground(drawableRes: Int) {
+        correctBackgroundRes = drawableRes
+    }
+
+    fun setIncorrectBackground(drawableRes: Int) {
+        incorrectBackgroundRes = drawableRes
+    }
+
+    fun setCorrectTextColorRes(colorRes: Int) {
+        correctTextColorRes = colorRes
+    }
+
+    fun setIncorrectTextColorRes(colorRes: Int) {
+        incorrectTextColorRes = colorRes
+    }
+
+    fun setMissingBackground(drawableRes: Int) {
+        missingBackgroundRes = drawableRes
+    }
+
+    fun setMissingTextColorRes(colorRes: Int) {
+        missingTextColorRes = colorRes
+    }
+
+    fun setReviewMode(mode: ReviewMode) {
+        reviewMode = mode
+    }
+
+    // ==========================
+    // ANIMATION CONFIGURATION
+    // ==========================
+
+    fun setSmoothRemovalAnimation(enabled: Boolean) {
+        enableSmoothRemovalAnimation = enabled
+    }
+
+    fun setWordMovementAnimation(enabled: Boolean) {
+        enableWordMovementAnimation = enabled
+    }
+
+    fun setAllAnimations(enabled: Boolean) {
+        enableSmoothRemovalAnimation = enabled
+        enableWordMovementAnimation = enabled
+    }
+
+    // ==========================
+    // PRIVATE SETUP METHODS
+    // ==========================
+
+    private fun setupViews() {
+        arrangedWordsLayout = createFlexboxLayout().apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = 16.dpToPx()
             }
-            justifyContent = JustifyContent.CENTER
-            flexWrap = com.google.android.flexbox.FlexWrap.WRAP
-            setPadding(16, 16, 16, 16)
         }
 
-        // Create divider
         dividerView = View(context).apply {
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                2.dpToPx()
-            ).apply {
-                setMargins(0, 8, 0, 16)
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 2.dpToPx()).apply {
+                setMargins(0, 8, 0, 68)
             }
-            setBackgroundColor(Color.parseColor("#E0E0E0"))
+            setBackgroundColor(ContextCompat.getColor(context, R.color.divider_default))
         }
 
-        // Create available words area (bottom) with flex wrap
-        availableWordsLayout = FlexboxLayout(context).apply {
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT
-            )
-            justifyContent = JustifyContent.CENTER
-            flexWrap = com.google.android.flexbox.FlexWrap.WRAP
-            setPadding(16, 16, 16, 16)
-        }
+        availableWordsLayout = createFlexboxLayout()
+    }
+
+    private fun setupLayout() {
+        orientation = VERTICAL
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        setPadding(16, 16, 16, 16)
 
         addView(arrangedWordsLayout)
         addView(dividerView)
         addView(availableWordsLayout)
     }
 
-    fun setWords(words: List<String>, allowEmpty: Boolean = true) {
-        this.allowEmptyWords = allowEmpty
+    private fun createFlexboxLayout(): FlexboxLayout {
+        return FlexboxLayout(context).apply {
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+            justifyContent = JustifyContent.CENTER
+            flexWrap = com.google.android.flexbox.FlexWrap.WRAP
+            setPadding(16, 16, 16, 16)
+        }
+    }
+
+    private fun clearViews() {
         availableWordsLayout.removeAllViews()
         arrangedWordsLayout.removeAllViews()
         wordItems.clear()
         arrangedWords.clear()
         nextItemId = 0
+    }
 
-        // Process and validate words
-        val processedWords = words.mapIndexedNotNull { index, word ->
+    private fun processWords(words: List<String>): List<ProcessedWord> {
+        return words.mapIndexedNotNull { _, word ->
             val trimmedWord = word.trim()
-
-            // Check if empty word is allowed
             if (trimmedWord.isEmpty() && !allowEmptyWords) {
-                null  // Skip empty words if not allowed
+                null
             } else {
                 ProcessedWord(
                     id = nextItemId++,
                     originalText = word,
-                    displayText = if (trimmedWord.isEmpty()) "□" else trimmedWord  // Show □ for empty
+                    displayText = trimmedWord.ifEmpty { "□" }
                 )
             }
         }
+    }
 
-        // Shuffle words for random arrangement
-        val shuffledWords = processedWords.shuffled()
-
-        shuffledWords.forEach { processedWord ->
+    private fun createWordViews(processedWords: List<ProcessedWord>) {
+        processedWords.forEach { processedWord ->
             val wordView = createWordView(processedWord.displayText, false, processedWord.id)
             val wordItem = WordItem(
                 id = processedWord.id,
@@ -136,55 +347,29 @@ class WordArrangementView @JvmOverloads constructor(
             wordItems.add(wordItem)
             availableWordsLayout.addView(wordView)
         }
-
-        // Force layout update to ensure all views are properly positioned
-        availableWordsLayout.post {
-            // Update original view references after layout
-            for (i in 0 until availableWordsLayout.childCount) {
-                val child = availableWordsLayout.getChildAt(i) as? TextView
-                child?.let { view ->
-                    val itemId = view.tag as? Int ?: return@let
-                    val wordItem = wordItems.find { it.id == itemId }
-                    wordItem?.let {
-                        it.originalView.setOnClickListener {
-                            handleWordClick(view, itemId, false)
-                        }
-                    }
-                }
-            }
-        }
     }
 
-    private data class ProcessedWord(
-        val id: Int,
-        val originalText: String,
-        val displayText: String
-    )
+    // ==========================
+    // VIEW CREATION METHODS
+    // ==========================
 
     private fun createWordView(text: String, isArranged: Boolean, itemId: Int): TextView {
         return TextView(context).apply {
             this.text = text
-            this.tag = itemId  // Store unique ID in tag for identification
-            textSize = 20f  // Increased to 20sp as requested
+            tag = itemId
+            textSize = 20f
             gravity = Gravity.CENTER
             setSingleLine(true)
             maxLines = 1
             isClickable = true
             isFocusable = true
 
-            // Fixed square size with increased margins for more spacing
-            val params = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
-                setMargins(10, 10, 10, 10)  // Increased from 6 to 10 for more spacing
-            }
-            layoutParams = params
-
-            background = if (isArranged) {
-                createWordBackground(Color.parseColor("#4CAF50"))
-            } else {
-                createWordBackground(Color.parseColor("#2196F3"))
+            layoutParams = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
+                setMargins(10, 10, 10, 10)
             }
 
-            setTextColor(Color.WHITE)
+            applyTextStyle(this)
+            applyBackground(this, isArranged)
 
             setOnClickListener {
                 handleWordClick(this, itemId, isArranged)
@@ -195,30 +380,127 @@ class WordArrangementView @JvmOverloads constructor(
     private fun createPlaceholderView(itemId: Int): TextView {
         return TextView(context).apply {
             text = ""
-            this.tag = itemId  // Store ID for reference
+            tag = itemId
             gravity = Gravity.CENTER
-
-            // Same fixed size as word views with same spacing
-            val params = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
-                setMargins(10, 10, 10, 10)  // Increased margins to match word views
+            layoutParams = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
+                setMargins(10, 10, 10, 10)
             }
-            layoutParams = params
-
-            background = createPlaceholderBackground()
-
-            // Make placeholder visible but subtle
+            background = getPlaceholderBackground()
             alpha = 0.7f
         }
     }
 
+    private fun applyTextStyle(textView: TextView) {
+        if (textIsBold) {
+            textView.typeface = Typeface.DEFAULT_BOLD
+        }
+    }
+
+    private fun applyBackground(textView: TextView, isArranged: Boolean) {
+        if (isArranged) {
+            textView.background = getArrangedBackground()
+            textView.setTextColor(ContextCompat.getColor(context, arrangedTextColorRes))
+        } else {
+            textView.background = getAvailableBackground()
+            textView.setTextColor(ContextCompat.getColor(context, availableTextColorRes))
+        }
+    }
+
+    private fun applyReviewBackground(textView: TextView, wordResult: WordResult) {
+        when (wordResult) {
+            WordResult.CORRECT -> {
+                textView.background = getCorrectBackground()
+                textView.setTextColor(ContextCompat.getColor(context, correctTextColorRes))
+            }
+            WordResult.INCORRECT -> {
+                textView.background = getIncorrectBackground()
+                textView.setTextColor(ContextCompat.getColor(context, incorrectTextColorRes))
+            }
+            WordResult.MISSING -> {
+                textView.background = getMissingBackground()
+                textView.setTextColor(ContextCompat.getColor(context, missingTextColorRes))
+            }
+        }
+    }
+
+    // ==========================
+    // BACKGROUND GETTERS
+    // ==========================
+
+    private fun getAvailableBackground(): Drawable {
+        return getCustomBackground(availableBackgroundRes)
+            ?: createDefaultBackground(ContextCompat.getColor(context, R.color.bg_available_default))
+    }
+
+    private fun getArrangedBackground(): Drawable {
+        return getCustomBackground(arrangedBackgroundRes)
+            ?: createDefaultBackground(ContextCompat.getColor(context, R.color.bg_arranged_default))
+    }
+
+    private fun getPlaceholderBackground(): Drawable {
+        return getCustomBackground(placeholderBackgroundRes)
+            ?: createPlaceholderBackground()
+    }
+
+    private fun getCorrectBackground(): Drawable {
+        return getCustomBackground(correctBackgroundRes)
+            ?: createDefaultBackground(ContextCompat.getColor(context, R.color.bg_correct_default))
+    }
+
+    private fun getIncorrectBackground(): Drawable {
+        return getCustomBackground(incorrectBackgroundRes)
+            ?: createDefaultBackground(ContextCompat.getColor(context, R.color.bg_incorrect_default))
+    }
+
+    private fun getMissingBackground(): Drawable {
+        return getCustomBackground(missingBackgroundRes)
+            ?: createDefaultBackground(ContextCompat.getColor(context, R.color.bg_missing_default))
+    }
+
+    private fun getCustomBackground(drawableRes: Int?): Drawable? {
+        return drawableRes?.let { res ->
+            try {
+                ContextCompat.getDrawable(context, res)?.mutate()
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    private fun createDefaultBackground(color: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8.dpToPx().toFloat()
+            setColor(color)
+            setStroke(2, ContextCompat.getColor(context, R.color.stroke_default))
+        }
+    }
+
+    private fun createPlaceholderBackground(): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 8.dpToPx().toFloat()
+            setColor(ContextCompat.getColor(context, R.color.bg_placeholder_default))
+            setStroke(
+                2,
+                ContextCompat.getColor(context, R.color.stroke_placeholder_default),
+                2f,
+                8f
+            )
+        }
+    }
+
+    // ==========================
+    // INTERACTION HANDLERS
+    // ==========================
+
     private fun handleWordClick(wordView: TextView, itemId: Int, isArranged: Boolean) {
+        // Disable clicks in review mode
+        if (isInReviewMode) return
+
         val wordItem = wordItems.find { it.id == itemId } ?: return
 
-        // Prevent clicks during animation
-        if (wordItem.isAnimating) return
-
-        // Extra check to ensure view is still valid and clickable
-        if (wordView.parent == null) return
+        if (wordItem.isAnimating || wordView.parent == null) return
 
         if (isArranged) {
             moveWordBack(wordView, itemId)
@@ -229,89 +511,381 @@ class WordArrangementView @JvmOverloads constructor(
 
     private fun moveWordUp(wordView: TextView, itemId: Int) {
         val wordItem = wordItems.find { it.id == itemId } ?: return
-
-        // Set animation flag
         wordItem.isAnimating = true
 
-        // Get start position BEFORE any layout changes
         val startLocation = IntArray(2)
         wordView.getLocationInWindow(startLocation)
 
-        // Create placeholder with same fixed size
+        // Create placeholder and new word view
         val placeholder = createPlaceholderView(itemId)
-        val indexInParent = availableWordsLayout.indexOfChild(wordView)
-        availableWordsLayout.removeView(wordView)
-        availableWordsLayout.addView(placeholder, indexInParent)
+        replaceViewInLayout(availableWordsLayout, wordView, placeholder)
         wordItem.placeholderView = placeholder
 
-        // Create new word view for arranged area
         val newWordView = createWordView(wordItem.displayText, true, itemId)
-
-        // Add to arranged area (invisible initially)
         arrangedWordsLayout.addView(newWordView)
         newWordView.alpha = 0f
 
-        // Force layout update and get end position
-        arrangedWordsLayout.post {
-            val endLocation = IntArray(2)
-            newWordView.getLocationInWindow(endLocation)
+        if (enableWordMovementAnimation) {
+            // Animate after layout
+            arrangedWordsLayout.post {
+                val endLocation = IntArray(2)
+                newWordView.getLocationInWindow(endLocation)
 
-            // Create animation with correct positions
-            animateWordMovement(wordView, newWordView, startLocation, endLocation) {
-                wordItem.isArranged = true
-                wordItem.isAnimating = false
-                arrangedWords.add(wordItem.text)  // Add original text, not display text
+                animateWordMovement(wordView, newWordView, startLocation, endLocation) {
+                    finalizeWordMove(wordItem)
+                }
             }
+        } else {
+            // Instant movement
+            newWordView.alpha = 1f
+            finalizeWordMove(wordItem)
         }
+    }
+
+    private fun finalizeWordMove(wordItem: WordItem) {
+        wordItem.isArranged = true
+        wordItem.isAnimating = false
+        arrangedWords.add(wordItem.text)
     }
 
     private fun moveWordBack(wordView: TextView, itemId: Int) {
         val wordItem = wordItems.find { it.id == itemId } ?: return
         val placeholder = wordItem.placeholderView ?: return
 
-        // Set animation flag
         wordItem.isAnimating = true
 
-        // Get start position BEFORE any layout changes
         val startLocation = IntArray(2)
         wordView.getLocationInWindow(startLocation)
 
-        // Get end position from placeholder
         val endLocation = IntArray(2)
         placeholder.getLocationInWindow(endLocation)
 
-        // Create new word view for available area
         val newWordView = createWordView(wordItem.displayText, false, itemId)
-
-        // Replace placeholder with new word view
-        val indexInParent = availableWordsLayout.indexOfChild(placeholder)
-        availableWordsLayout.removeView(placeholder)
-        availableWordsLayout.addView(newWordView, indexInParent)
+        replaceViewInLayout(availableWordsLayout, placeholder, newWordView)
         newWordView.alpha = 0f
 
-        // Update the wordItem reference to the new view
-        wordItem.originalView.setOnClickListener(null) // Remove old listener
-        wordItems.find { it.id == itemId }?.let { item ->
-            item.originalView.setOnClickListener {
-                handleWordClick(newWordView, itemId, false)
+        if (enableSmoothRemovalAnimation) {
+            // Animate item removal with smooth layout transition
+            animateItemRemovalWithLayoutTransition(wordView, arrangedWordsLayout) {
+                finalizeMoveWordBack(wordView, newWordView, startLocation, endLocation, wordItem)
+            }
+        } else {
+            // Make view invisible first, then remove after word movement
+            wordView.alpha = 0f
+            finalizeMoveWordBack(wordView, newWordView, startLocation, endLocation, wordItem)
+        }
+    }
+
+    private fun finalizeMoveWordBack(
+        oldWordView: TextView,
+        newWordView: TextView,
+        startLocation: IntArray,
+        endLocation: IntArray,
+        wordItem: WordItem
+    ) {
+        if (enableWordMovementAnimation) {
+            availableWordsLayout.post {
+                newWordView.getLocationInWindow(endLocation)
+
+                animateWordMovement(oldWordView, newWordView, startLocation, endLocation) {
+                    cleanupAfterMoveBack(oldWordView, wordItem)
+                }
+            }
+        } else {
+            // Instant movement, then remove the space
+            newWordView.alpha = 1f
+            cleanupAfterMoveBack(oldWordView, wordItem)
+        }
+    }
+
+    private fun cleanupAfterMoveBack(oldWordView: TextView, wordItem: WordItem) {
+        arrangedWordsLayout.removeView(oldWordView)
+        arrangedWords.remove(wordItem.text)
+        wordItem.isArranged = false
+        wordItem.isAnimating = false
+        wordItem.placeholderView = null
+    }
+
+    // ==========================
+    // ANIMATION METHODS
+    // ==========================
+
+    private fun animateItemRemovalWithLayoutTransition(
+        viewToRemove: TextView,
+        parentLayout: ViewGroup,
+        onComplete: () -> Unit
+    ) {
+        val originalWidth = viewToRemove.width
+        val originalHeight = viewToRemove.height
+        val layoutParams = viewToRemove.layoutParams as FlexboxLayout.LayoutParams
+
+        // Create animators
+        val scaleXAnimator = ObjectAnimator.ofFloat(viewToRemove, "scaleX", 1f, 0f)
+        val scaleYAnimator = ObjectAnimator.ofFloat(viewToRemove, "scaleY", 1f, 0f)
+        val alphaAnimator = ObjectAnimator.ofFloat(viewToRemove, "alpha", 1f, 0f)
+
+        val widthAnimator = ValueAnimator.ofInt(originalWidth, 0).apply {
+            addUpdateListener { animator ->
+                layoutParams.width = animator.animatedValue as Int
+                viewToRemove.layoutParams = layoutParams
             }
         }
 
-        // Force layout update then animate
-        availableWordsLayout.post {
-            // Update end location after layout change
+        val heightAnimator = ValueAnimator.ofInt(originalHeight, 0).apply {
+            addUpdateListener { animator ->
+                layoutParams.height = animator.animatedValue as Int
+                viewToRemove.layoutParams = layoutParams
+            }
+        }
+
+        val animatorSet = AnimatorSet().apply {
+            playTogether(scaleXAnimator, scaleYAnimator, alphaAnimator, widthAnimator, heightAnimator)
+            duration = layoutAnimationDuration
+            interpolator = AccelerateDecelerateInterpolator()
+        }
+
+        animatorSet.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                parentLayout.removeView(viewToRemove)
+                onComplete()
+            }
+        })
+
+        animatorSet.start()
+    }
+
+    // ==========================
+    // REVIEW MODE METHODS
+    // ==========================
+
+    private fun setWordsForReview(userAnswers: List<String>, correctAnswers: List<String>) {
+        // Available area hiển thị tất cả từ trong đáp án đúng
+        val processedWords = correctAnswers.mapIndexed { index, word ->
+            ProcessedWord(
+                id = index,
+                originalText = word,
+                displayText = word.trim().ifEmpty { "□" }
+            )
+        }
+
+        createWordViewsForReview(processedWords, userAnswers, correctAnswers)
+    }
+
+    private fun createWordViewsForReview(
+        processedWords: List<ProcessedWord>,
+        userAnswers: List<String>,
+        correctAnswers: List<String>
+    ) {
+        processedWords.forEach { processedWord ->
+            val wordView = createWordView(processedWord.displayText, false, processedWord.id)
+            val wordItem = WordItem(
+                id = processedWord.id,
+                text = processedWord.originalText,
+                displayText = processedWord.displayText,
+                originalView = wordView
+            )
+            wordItems.add(wordItem)
+            availableWordsLayout.addView(wordView)
+        }
+    }
+
+    private fun animateUserSelectionsToReview(userAnswers: List<String>, correctAnswers: List<String>) {
+        // Determine overall correctness for ALL_OR_NOTHING mode
+        val isSequenceCorrect = when (reviewMode) {
+            ReviewMode.ALL_OR_NOTHING -> userAnswers == correctAnswers.take(userAnswers.size)
+            ReviewMode.INDIVIDUAL_MATCHING -> true // Not used in this mode
+        }
+
+        // Track which available words have been used
+        val usedAvailableIndices = mutableSetOf<Int>()
+
+        // Animate only user selected words
+        userAnswers.forEachIndexed { userIndex, userWord ->
+            // Tìm từ user trong available area (từ correctAnswers), nhưng bỏ qua những từ đã dùng
+            val availableIndex = correctAnswers.indexOfFirst { word ->
+                word == userWord && !usedAvailableIndices.contains(correctAnswers.indexOf(word))
+            }.let { firstIndex ->
+                if (firstIndex == -1) {
+                    // Nếu không tìm thấy, tìm từ tiếp theo có cùng nội dung
+                    correctAnswers.indices.firstOrNull { index ->
+                        correctAnswers[index] == userWord && !usedAvailableIndices.contains(index)
+                    } ?: -1
+                } else {
+                    firstIndex
+                }
+            }
+
+            if (availableIndex != -1) {
+                // Đánh dấu đã sử dụng
+                usedAvailableIndices.add(availableIndex)
+
+                val wordResult = when (reviewMode) {
+                    ReviewMode.INDIVIDUAL_MATCHING -> {
+                        // Kiểm tra xem user word có đúng vị trí không
+                        if (userIndex < correctAnswers.size && userWord == correctAnswers[userIndex]) {
+                            WordResult.CORRECT
+                        } else {
+                            WordResult.INCORRECT
+                        }
+                    }
+                    ReviewMode.ALL_OR_NOTHING -> {
+                        if (isSequenceCorrect) WordResult.CORRECT else WordResult.INCORRECT
+                    }
+                }
+
+                // Delay each word animation theo thứ tự user chọn
+                availableWordsLayout.postDelayed({
+                    animateSpecificWordToReview(availableIndex, userWord, wordResult, userIndex)
+                }, userIndex * 200L)
+            }
+        }
+    }
+
+    private fun animateSpecificWordToReview(availableIndex: Int, userWord: String, wordResult: WordResult, userSelectionIndex: Int) {
+        // Tìm view tương ứng trong available area
+        val wordView = findWordViewInLayout(availableWordsLayout, availableIndex) ?: return
+
+        val startLocation = IntArray(2)
+        wordView.getLocationInWindow(startLocation)
+
+        // Create new word view with appropriate background cho arranged area
+        val newWordView = createWordView(userWord, true, availableIndex + 1000) // ID khác để tránh conflict
+        applyReviewBackground(newWordView, wordResult)
+
+        arrangedWordsLayout.addView(newWordView)
+        newWordView.alpha = 0f
+
+        // Create placeholder to replace the selected word
+        val placeholder = createPlaceholderView(availableIndex)
+        replaceViewInLayout(availableWordsLayout, wordView, placeholder)
+
+        // Animate after layout
+        arrangedWordsLayout.post {
+            val endLocation = IntArray(2)
             newWordView.getLocationInWindow(endLocation)
 
-            // Create animation
-            animateWordMovement(wordView, newWordView, startLocation, endLocation) {
-                // Remove from arranged words
-                arrangedWordsLayout.removeView(wordView)
-                arrangedWords.remove(wordItem.text)  // Remove original text
-                wordItem.isArranged = false
-                wordItem.isAnimating = false
-                wordItem.placeholderView = null
+            animateWordMovementForReview(wordView, newWordView, startLocation, endLocation, wordResult) {
+                // Animation complete - thêm vào arranged words theo thứ tự user chọn
+                if (userSelectionIndex >= arrangedWords.size) {
+                    arrangedWords.add(userWord)
+                } else {
+                    arrangedWords.add(userSelectionIndex, userWord)
+                }
             }
         }
+    }
+
+    private fun animateWordMovementForReview(
+        fromView: TextView,
+        toView: TextView,
+        startLocation: IntArray,
+        endLocation: IntArray,
+        wordResult: WordResult,
+        onComplete: () -> Unit,
+    ) {
+        val rootView = getRootViewGroup() ?: return
+        val animatedView = createAnimatedViewForReview(fromView, startLocation, wordResult)
+
+        rootView.addView(animatedView)
+        fromView.alpha = 0f
+        toView.alpha = 0f
+
+        val animatorSet = createReviewMoveAnimatorSet(animatedView, startLocation, endLocation, wordResult)
+
+        animatorSet.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                cleanupReviewAnimation(rootView, animatedView, toView, onComplete)
+            }
+
+            override fun onAnimationCancel(animation: Animator) {
+                cleanupReviewAnimation(rootView, animatedView, toView, onComplete)
+            }
+        })
+
+        animatorSet.start()
+    }
+
+    private fun createAnimatedViewForReview(fromView: TextView, startLocation: IntArray, wordResult: WordResult): TextView {
+        return TextView(context).apply {
+            text = fromView.text
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setSingleLine(true)
+            maxLines = 1
+            alpha = 1f
+            elevation = 8.dpToPx().toFloat()
+
+            applyTextStyle(this)
+            applyReviewBackground(this, wordResult)
+
+            layoutParams = ViewGroup.LayoutParams(itemSize, itemSize)
+            x = startLocation[0].toFloat()
+            y = startLocation[1].toFloat()
+        }
+    }
+
+    private fun createReviewMoveAnimatorSet(
+        animatedView: TextView,
+        startLocation: IntArray,
+        endLocation: IntArray,
+        wordResult: WordResult
+    ): AnimatorSet {
+        return AnimatorSet().apply {
+            val animators = mutableListOf(
+                ObjectAnimator.ofFloat(animatedView, "x", startLocation[0].toFloat(), endLocation[0].toFloat()),
+                ObjectAnimator.ofFloat(animatedView, "y", startLocation[1].toFloat(), endLocation[1].toFloat()),
+                ObjectAnimator.ofFloat(animatedView, "scaleX", 1f, 1.2f, 1f),
+                ObjectAnimator.ofFloat(animatedView, "scaleY", 1f, 1.2f, 1f)
+            )
+
+            // Add different effects based on word result
+            when (wordResult) {
+                WordResult.CORRECT -> {
+                    // Gentle bounce for correct answers
+                    animators.add(ObjectAnimator.ofFloat(animatedView, "rotation", 0f, 5f, -5f, 0f))
+                }
+                WordResult.INCORRECT -> {
+                    // Shake effect for incorrect answers
+                    animators.add(ObjectAnimator.ofFloat(animatedView, "rotation", 0f, -10f, 10f, -5f, 5f, 0f))
+                }
+                WordResult.MISSING -> {
+                    // Fade effect for missing words
+                    animators.add(ObjectAnimator.ofFloat(animatedView, "alpha", 1f, 0.7f, 1f))
+                    animators.add(ObjectAnimator.ofFloat(animatedView, "rotation", 0f, 15f, -15f, 0f))
+                }
+            }
+
+            playTogether(*animators.toTypedArray())
+            duration = animationDuration + 100L // Slightly longer for review
+            interpolator = DecelerateInterpolator(1.5f)
+        }
+    }
+
+    private fun cleanupReviewAnimation(
+        rootView: ViewGroup,
+        animatedView: TextView,
+        toView: TextView,
+        onComplete: () -> Unit
+    ) {
+        try {
+            rootView.removeView(animatedView)
+        } catch (e: Exception) {
+            // View might already be removed
+        }
+
+        // Show target view with bounce effect
+        toView.alpha = 1f
+        toView.scaleX = 0.8f
+        toView.scaleY = 0.8f
+        toView.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(200)
+            .setInterpolator(OvershootInterpolator(1.5f))
+            .withEndAction {
+                onComplete()
+            }
+            .start()
     }
 
     private fun animateWordMovement(
@@ -321,114 +895,106 @@ class WordArrangementView @JvmOverloads constructor(
         endLocation: IntArray,
         onComplete: () -> Unit,
     ) {
-        // Get root view to add animated view
-        val rootView =
-            (context as? AppCompatActivity)?.findViewById<ViewGroup>(android.R.id.content)
-                ?: this.parent as ViewGroup
+        val rootView = getRootViewGroup() ?: return
+        val animatedView = createAnimatedView(fromView, startLocation)
 
-        // Create animated view for transition with fixed square size
-        val animatedView = TextView(context).apply {
+        rootView.addView(animatedView)
+        fromView.alpha = 0f
+        toView.alpha = 0f
+
+        val animatorSet = createMoveAnimatorSet(animatedView, startLocation, endLocation)
+
+        animatorSet.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                cleanup(rootView, animatedView, toView, onComplete)
+            }
+
+            override fun onAnimationCancel(animation: Animator) {
+                cleanup(rootView, animatedView, toView, onComplete)
+            }
+        })
+
+        animatorSet.start()
+    }
+
+    private fun createAnimatedView(fromView: TextView, startLocation: IntArray): TextView {
+        return TextView(context).apply {
             text = fromView.text
-            textSize = 20f  // Match the updated text size
+            textSize = 20f
             gravity = Gravity.CENTER
             background = fromView.background.constantState?.newDrawable()?.mutate()
-            setTextColor(Color.WHITE)
+            setTextColor(fromView.currentTextColor)
             alpha = 1f
             elevation = 8.dpToPx().toFloat()
             setSingleLine(true)
             maxLines = 1
 
-            // Set exact square size and position
+            applyTextStyle(this)
+
             layoutParams = ViewGroup.LayoutParams(itemSize, itemSize)
             x = startLocation[0].toFloat()
             y = startLocation[1].toFloat()
         }
+    }
 
-        // Add animated view to root
-        rootView.addView(animatedView)
-
-        // Hide original views
-        fromView.alpha = 0f
-        toView.alpha = 0f
-
-        // Calculate final position
-        val finalX = endLocation[0].toFloat()
-        val finalY = endLocation[1].toFloat()
-
-        // Create animation set with improved timing
-        val animatorSet = AnimatorSet().apply {
+    private fun createMoveAnimatorSet(
+        animatedView: TextView,
+        startLocation: IntArray,
+        endLocation: IntArray
+    ): AnimatorSet {
+        return AnimatorSet().apply {
             playTogether(
-                ObjectAnimator.ofFloat(animatedView, "x", startLocation[0].toFloat(), finalX),
-                ObjectAnimator.ofFloat(animatedView, "y", startLocation[1].toFloat(), finalY),
+                ObjectAnimator.ofFloat(animatedView, "x", startLocation[0].toFloat(), endLocation[0].toFloat()),
+                ObjectAnimator.ofFloat(animatedView, "y", startLocation[1].toFloat(), endLocation[1].toFloat()),
                 ObjectAnimator.ofFloat(animatedView, "scaleX", 1f, 1.15f, 1f),
                 ObjectAnimator.ofFloat(animatedView, "scaleY", 1f, 1.15f, 1f),
                 ObjectAnimator.ofFloat(animatedView, "rotation", 0f, 8f, 0f)
             )
             duration = animationDuration
-            interpolator = android.view.animation.DecelerateInterpolator(1.5f)
-
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    // Remove animated view
-                    try {
-                        rootView.removeView(animatedView)
-                    } catch (e: Exception) {
-                        // Handle case where view might already be removed
-                    }
-
-                    // Show target view with bounce effect
-                    toView.alpha = 1f
-                    toView.scaleX = 0.7f
-                    toView.scaleY = 0.7f
-                    toView.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(150)
-                        .setInterpolator(android.view.animation.OvershootInterpolator(2f))
-                        .start()
-
-                    onComplete()
-                }
-
-                override fun onAnimationCancel(animation: Animator) {
-                    // Clean up if animation is cancelled
-                    try {
-                        rootView.removeView(animatedView)
-                    } catch (e: Exception) {
-                        // Handle case where view might already be removed
-                    }
-                    onComplete()
-                }
-            })
-        }
-
-        animatorSet.start()
-    }
-
-    private fun createWordBackground(color: Int): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 8.dpToPx().toFloat()
-            setColor(color)
-            setStroke(2, Color.parseColor("#DEDEDE"))
+            interpolator = DecelerateInterpolator(1.5f)
         }
     }
 
-    private fun createPlaceholderBackground(): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 8.dpToPx().toFloat()
-            setColor(Color.parseColor("#F0F0F0"))
-            setStroke(2, Color.parseColor("#E0E0E0"), 2f, 8f) // Dashed border for placeholder
+    private fun cleanup(
+        rootView: ViewGroup,
+        animatedView: TextView,
+        toView: TextView,
+        onComplete: () -> Unit
+    ) {
+        try {
+            rootView.removeView(animatedView)
+        } catch (e: Exception) {
+            // View might already be removed
         }
+
+        // Show target view with bounce effect
+        toView.alpha = 1f
+        toView.scaleX = 0.7f
+        toView.scaleY = 0.7f
+        toView.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(150)
+            .setInterpolator(OvershootInterpolator(2f))
+            .withEndAction {
+                onComplete()
+            }
+            .start()
     }
 
-    private fun Int.dpToPx(): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            this.toFloat(),
-            context.resources.displayMetrics
-        ).toInt()
+    // ==========================
+    // UTILITY METHODS
+    // ==========================
+
+    private fun getRootViewGroup(): ViewGroup? {
+        return (context as? AppCompatActivity)?.findViewById(android.R.id.content)
+            ?: parent as? ViewGroup
+    }
+
+    private fun replaceViewInLayout(layout: ViewGroup, oldView: View, newView: View) {
+        val index = layout.indexOfChild(oldView)
+        layout.removeView(oldView)
+        layout.addView(newView, index)
     }
 
     private fun findWordViewInLayout(layout: ViewGroup, itemId: Int): TextView? {
@@ -441,47 +1007,11 @@ class WordArrangementView @JvmOverloads constructor(
         return null
     }
 
-    // Public methods
-    fun getArrangedWords(): List<String> = arrangedWords.toList()
-
-    fun getArrangedWordsWithIds(): List<Pair<Int, String>> {
-        return wordItems.filter { it.isArranged }.map { it.id to it.text }
-    }
-
-    fun clearArrangedWords() {
-        // Create a copy to avoid concurrent modification
-        val itemsToMoveBack = wordItems.filter { it.isArranged && !it.isAnimating }
-        itemsToMoveBack.forEach { wordItem ->
-            val wordView = findWordViewInLayout(arrangedWordsLayout, wordItem.id)
-            wordView?.let { moveWordBack(it, wordItem.id) }
-        }
-    }
-
-    fun isComplete(): Boolean {
-        return arrangedWords.size == wordItems.size
-    }
-
-    fun setItemSize(sizeDp: Int) {
-        // Allow customization of item size if needed
-        // You can call this before setWords() to change the default 60dp size
-    }
-
-    fun setAllowEmptyWords(allow: Boolean) {
-        this.allowEmptyWords = allow
-    }
-
-    // Debug method to check view states
-    fun debugViewStates() {
-        println("=== Debug Word Arrangement ===")
-        wordItems.forEachIndexed { index, item ->
-            println("Item $index: ID=${item.id} '${item.text}' (display:'${item.displayText}') - isArranged: ${item.isArranged}, isAnimating: ${item.isAnimating}")
-            println("  OriginalView parent: ${item.originalView.parent}")
-            println("  OriginalView clickable: ${item.originalView.isClickable}")
-        }
-        println("Available layout children: ${availableWordsLayout.childCount}")
-        println("Arranged layout children: ${arrangedWordsLayout.childCount}")
-        println("Arranged words: $arrangedWords")
-        println("Allow empty words: $allowEmptyWords")
-        println("==============================")
+    private fun Int.dpToPx(): Int {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            this.toFloat(),
+            context.resources.displayMetrics
+        ).toInt()
     }
 }
