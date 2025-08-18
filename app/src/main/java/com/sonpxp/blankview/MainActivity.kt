@@ -8,7 +8,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.sonpxp.blankview.databinding.ActivityMainBinding
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -32,11 +35,27 @@ class MainActivity : AppCompatActivity() {
     private fun setupListeners() = with(binding) {
         btnCheck.setOnClickListener { checkAnswer() }
         btnReset.setOnClickListener { resetGame() }
+        btnReview.setOnClickListener { review() }
     }
 
     private fun loadWords() = with(binding) {
         wordArrangementView.setWords(sampleWords)
         tvResult.text = ""
+    }
+
+    private fun review() {
+        binding.apply {
+            val userAnswers = listOf("1", "2", "1", "3", "3",  "1", "3",  "1")
+            val correctAnswers = listOf("1", "2", "1", "3", "3",  "1", "3",  "1",  "1", "3",)
+
+            binding.wordArrangementView.setWords(correctAnswers)
+            //binding.wordArrangementView.reviewResults(userAnswers, correctAnswers)
+
+            lifecycleScope.launch {
+                delay(2000)
+                binding.wordArrangementView.reviewResults(userAnswers, correctAnswers, WordArrangementView.ReviewMode.ALL_OR_NOTHING)
+            }
+        }
     }
 
     private fun checkAnswer() = with(binding) {
@@ -51,9 +70,9 @@ class MainActivity : AppCompatActivity() {
 
         tvResult.apply {
             text = if (isCorrect) {
-                "🎉 Chính xác! Câu trả lời đúng: ${arrangedWords.joinToString(" ")}"
+                "🎉 Chính xác! \n\nCâu trả lời đúng: ${arrangedWords.joinToString(" ")}"
             } else {
-                "❌ Chưa đúng. Bạn sắp xếp: ${arrangedWords.joinToString(" ")}"
+                "❌ Chưa đúng. \n\nBạn sắp xếp: ${arrangedWords.joinToString(" ")}"
             }
             setTextColor(
                 getColor(
@@ -66,6 +85,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun resetGame() = with(binding) {
         wordArrangementView.clearArrangedWords()
+        wordArrangementView.exitReviewMode()
         tvResult.text = ""
         Toast.makeText(this@MainActivity, "Đã reset! Hãy thử lại.", Toast.LENGTH_SHORT).show()
     }

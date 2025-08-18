@@ -43,10 +43,12 @@ class WordArrangementView @JvmOverloads constructor(
         const val EMPTY_WORD_SYMBOL = "□"
     }
 
+    // UI Components
     private lateinit var arrangedWordsLayout: FlexboxLayout
     private lateinit var dividerView: View
     private lateinit var availableWordsLayout: FlexboxLayout
 
+    // Data
     private val wordItems = mutableListOf<WordItem>()
     private val arrangedWords = mutableListOf<String>()
     private var allowEmptyWords = true
@@ -309,7 +311,7 @@ class WordArrangementView @JvmOverloads constructor(
             textSize = TEXT_SIZE_SP
             gravity = Gravity.CENTER
             background = fromView.background.constantState?.newDrawable()?.mutate()
-            setTextColor(ContextCompat.getColor(context, R.color.text_arranged_default))
+            setTextColor(ContextCompat.getColor(context, R.color.white))
             alpha = 1f
             elevation = 8.dpToPx().toFloat()
             isSingleLine = true
@@ -451,6 +453,158 @@ class WordArrangementView @JvmOverloads constructor(
         this.allowEmptyWords = allow
     }
 
+    fun reviewResults(
+        userAnswers: List<String>,
+        correctAnswers: List<String>,
+        mode: ReviewMode = ReviewMode.INDIVIDUAL_MATCHING
+    ) {
+        if (userAnswers.isEmpty()) return
+
+        // Prevent any interactions during review
+        setLayoutInteractive(false)
+
+        // Move all arranged words back to available area first
+        clearArrangedWords()
+
+        // Wait for clear animation to complete, then start review animation
+        postDelayed({
+            startReviewAnimation(userAnswers, correctAnswers, mode)
+        }, ANIMATION_DURATION + 100)
+    }
+
+    private fun startReviewAnimation(
+        userAnswers: List<String>,
+        correctAnswers: List<String>,
+        mode: ReviewMode
+    ) {
+        val reviewResults = calculateReviewResults(userAnswers, correctAnswers, mode)
+        val usedWordItemIds = mutableSetOf<Int>() // Track used items to avoid duplicates
+
+        // Animate words one by one with delay
+        userAnswers.forEachIndexed { index, answer ->
+            postDelayed({
+                val isCorrect = reviewResults[index]
+                val wordItem = findAvailableWordItemByText(answer, usedWordItemIds)
+                wordItem?.let { item ->
+                    usedWordItemIds.add(item.id) // Mark this item as used
+                    val wordView = findWordViewInLayout(availableWordsLayout, item.id)
+                    wordView?.let { view ->
+                        animateWordToReviewPosition(view, item.id, isCorrect, index == userAnswers.size - 1)
+                    }
+                }
+            }, index * 200L) // Stagger animation by 200ms
+        }
+    }
+
+    private fun calculateReviewResults(
+        userAnswers: List<String>,
+        correctAnswers: List<String>,
+        mode: ReviewMode
+    ): List<Boolean> {
+        return when (mode) {
+            ReviewMode.INDIVIDUAL_MATCHING -> {
+                calculateIndividualMatching(userAnswers, correctAnswers)
+            }
+            ReviewMode.ALL_OR_NOTHING -> {
+                val isAllCorrect = userAnswers == correctAnswers
+                List(userAnswers.size) { isAllCorrect }
+            }
+        }
+    }
+
+    private fun calculateIndividualMatching(
+        userAnswers: List<String>,
+        correctAnswers: List<String>
+    ): List<Boolean> {
+        return userAnswers.mapIndexed { index, userAnswer ->
+            index < correctAnswers.size && userAnswer == correctAnswers[index]
+        }
+    }
+
+    private fun findAvailableWordItemByText(text: String, usedIds: Set<Int>): WordItem? {
+        // Find first unmatched word item with the given text that hasn't been used yet
+        return wordItems.find {
+            it.text == text &&
+                    !it.isArranged &&
+                    !it.isAnimating &&
+                    it.id !in usedIds
+        }
+    }
+
+    private fun animateWordToReviewPosition(
+        wordView: TextView,
+        itemId: Int,
+        isCorrect: Boolean,
+        isLast: Boolean
+    ) {
+        val wordItem = wordItems.find { it.id == itemId } ?: return
+        wordItem.isAnimating = true
+
+        val startLocation = getViewLocation(wordView)
+        val placeholder = createAndInsertPlaceholder(wordView, itemId)
+        wordItem.placeholderView = placeholder
+
+        val newWordView = createReviewWordView(wordItem.displayText, isCorrect, itemId)
+        arrangedWordsLayout.addView(newWordView)
+        newWordView.alpha = 0f
+
+        arrangedWordsLayout.post {
+            val endLocation = getViewLocation(newWordView)
+            animateWordMovement(wordView, newWordView, startLocation, endLocation) {
+                wordItem.isArranged = true
+                wordItem.isAnimating = false
+                arrangedWords.add(wordItem.text)
+
+                // Re-enable interactions after last word
+                if (isLast) {
+                    //setLayoutInteractive(true)
+                }
+            }
+        }
+    }
+
+    fun exitReviewMode() {
+        setLayoutInteractive(true)
+    }
+
+    private fun createReviewWordView(text: String, isCorrect: Boolean, itemId: Int): TextView {
+        return TextView(context).apply {
+            this.text = text
+            this.tag = itemId
+            setupTextViewAppearance()
+            setupTextViewLayout()
+            background = createReviewWordBackground(isCorrect)
+            setTextColor(getReviewTextColor(isCorrect))
+            isClickable = false // Disable clicking in review mode
+        }
+    }
+
+    private fun createReviewWordBackground(isCorrect: Boolean): LayerDrawable {
+        return if (isCorrect) {
+            createLayerBackground(R.color.word_arranged_stroke, R.color.word_arranged_background)
+        } else {
+            createLayerBackground(R.color.word_incorrect_stroke, R.color.word_incorrect_background)
+        }
+    }
+
+    private fun getReviewTextColor(isCorrect: Boolean): Int {
+        return ContextCompat.getColor(context,
+            if (isCorrect) R.color.text_arranged_default else R.color.text_incorrect_default
+        )
+    }
+
+    private fun setLayoutInteractive(interactive: Boolean) {
+        // Disable/enable all word views in available layout
+        for (i in 0 until availableWordsLayout.childCount) {
+            availableWordsLayout.getChildAt(i).isClickable = interactive
+        }
+
+        // Disable/enable all word views in arranged layout
+        for (i in 0 until arrangedWordsLayout.childCount) {
+            arrangedWordsLayout.getChildAt(i).isClickable = interactive
+        }
+    }
+
     private data class WordItem(
         val id: Int,
         val text: String,
@@ -466,4 +620,9 @@ class WordArrangementView @JvmOverloads constructor(
         val originalText: String,
         val displayText: String,
     )
+
+    enum class ReviewMode {
+        INDIVIDUAL_MATCHING,  // Each word shows correct/incorrect individually
+        ALL_OR_NOTHING       // All words red if any mistake, all correct if perfect
+    }
 }

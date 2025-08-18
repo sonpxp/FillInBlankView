@@ -47,8 +47,16 @@
             android:id="@+id/btnReset"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
             android:backgroundTint="#FF5722"
             android:text="Làm lại" />
+
+        <Button
+            android:id="@+id/btnReview"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="#FF9800"
+            android:text="Review" />
 
     </LinearLayout>
 
