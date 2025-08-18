@@ -1,0 +1,20 @@
+```
+<com.sonpxp.blankview.WordArrangementView
+        android:id="@+id/wordArrangementView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:availableWordBackground="@drawable/img_box_grey"
+        app:arrangedWordBackground="@drawable/img_box_cyan"
+        app:placeholderBackground="@drawable/img_box_empty"
+        app:correctBackground="@drawable/img_box_cyan"
+        app:incorrectBackground="@drawable/img_box_pink"
+        app:availableTextColor="@color/text_available_default"
+        app:arrangedTextColor="@color/text_arranged_default"
+        app:correctTextColor="@color/text_arranged_default"
+        app:incorrectTextColor="@color/text_incorrect_default"
+        app:allowEmptyWords="true"
+        app:wordTextSize="20sp"
+        app:wordItemSize="50dp"
+        app:wordItemMargin="5dp"
+        app:animationDuration="300" />
+```

@@ -45,14 +45,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun review() {
         binding.apply {
-            val userAnswers = listOf("1", "2", "1", "3", "3",  "1", "3",  "1")
-            val correctAnswers = listOf("1", "2", "1", "3", "3",  "1", "3",  "1",  "1", "3",)
+            val userAnswers = listOf( "1", "3", "4",  "6", "5", "2")
+            val correctAnswers = listOf("1", "2", "1", "3", "4",  "6", "5",)
 
             binding.wordArrangementView.setWords(correctAnswers)
             //binding.wordArrangementView.reviewResults(userAnswers, correctAnswers)
 
             lifecycleScope.launch {
-                delay(2000)
+                delay(1000)
                 binding.wordArrangementView.reviewResults(userAnswers, correctAnswers, WordArrangementView.ReviewMode.ALL_OR_NOTHING)
             }
         }

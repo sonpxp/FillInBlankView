@@ -1,5 +1,6 @@
-package com.sonpxp.blankview
+package com.sonpxp.blankview.backup
 
+import com.sonpxp.blankview.R
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
@@ -24,7 +25,7 @@ import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.JustifyContent
 
-class WordArrangementView @JvmOverloads constructor(
+class WordArrangementView2 @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0,
@@ -44,6 +45,7 @@ class WordArrangementView @JvmOverloads constructor(
         const val EMPTY_WORD_SYMBOL = "□"
     }
 
+    // Custom properties from attrs
     private var customAvailableBackground: Int? = null
     private var customArrangedBackground: Int? = null
     private var customPlaceholderBackground: Int? = null
@@ -54,6 +56,7 @@ class WordArrangementView @JvmOverloads constructor(
     private var customCorrectTextColor: Int? = null
     private var customIncorrectTextColor: Int? = null
 
+    // Customizable properties
     private var animationDuration: Long = DEFAULT_ANIMATION_DURATION
     private var itemSizeDp: Int = DEFAULT_ITEM_SIZE_DP
     private var itemMarginDp: Int = DEFAULT_ITEM_MARGIN_DP

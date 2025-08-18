@@ -1,6 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <declare-styleable name="WordArrangementView">
+        <!-- Background drawables -->
+        <attr name="availableWordBackground" format="reference" />
+        <attr name="arrangedWordBackground" format="reference" />
+        <attr name="placeholderBackground" format="reference" />
+        <attr name="correctBackground" format="reference" />
+        <attr name="incorrectBackground" format="reference" />
+
+        <!-- Text colors -->
+        <attr name="availableTextColor" format="color|reference" />
+        <attr name="arrangedTextColor" format="color|reference" />
+        <attr name="correctTextColor" format="color|reference" />
+        <attr name="incorrectTextColor" format="color|reference" />
+
+        <!-- Other customizable properties -->
+        <attr name="allowEmptyWords" format="boolean" />
+        <attr name="wordTextSize" format="dimension" />
+        <attr name="wordItemSize" format="dimension" />
+        <attr name="wordItemMargin" format="dimension" />
+        <attr name="animationDuration" format="integer" />
+    </declare-styleable>
+
     <declare-styleable name="FillInBlankView">
         <!-- Text content with {{blank}} placeholders -->
         <attr name="fib_text" format="string" />
