@@ -9,6 +9,8 @@
         <attr name="correctBackground" format="reference" />
         <attr name="incorrectBackground" format="reference" />
 
+        <attr name="dividerBottomMargin" format="dimension" />
+
         <!-- Text colors -->
         <attr name="availableTextColor" format="color|reference" />
         <attr name="arrangedTextColor" format="color|reference" />

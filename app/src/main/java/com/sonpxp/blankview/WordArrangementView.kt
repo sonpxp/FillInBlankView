@@ -37,7 +37,7 @@ class WordArrangementView @JvmOverloads constructor(
         const val DEFAULT_TEXT_SIZE_SP = 20f
         const val PADDING_DP = 12
         const val DIVIDER_HEIGHT_DP = 2
-        const val DIVIDER_BOTTOM_MARGIN_DP = 50
+        const val DIVIDER_BOTTOM_MARGIN_DP = 24
         const val CORNER_RADIUS_DP = 8
         const val STROKE_WIDTH_DP = 1
         const val DASH_WIDTH_DP = 3
@@ -58,6 +58,7 @@ class WordArrangementView @JvmOverloads constructor(
     private var itemSizeDp: Int = DEFAULT_ITEM_SIZE_DP
     private var itemMarginDp: Int = DEFAULT_ITEM_MARGIN_DP
     private var textSizeSp: Float = DEFAULT_TEXT_SIZE_SP
+    private var dividerBottomMarginDp: Int = DIVIDER_BOTTOM_MARGIN_DP
 
     private lateinit var arrangedWordsLayout: FlexboxLayout
     private lateinit var dividerView: View
@@ -110,6 +111,11 @@ class WordArrangementView @JvmOverloads constructor(
                     R.styleable.WordArrangementView_incorrectBackground,
                     -1
                 ).takeIf { it != -1 }
+
+                dividerBottomMarginDp = (typedArray.getDimension(
+                    R.styleable.WordArrangementView_dividerBottomMargin,
+                    DIVIDER_BOTTOM_MARGIN_DP.dpToPx().toFloat()
+                ) / context.resources.displayMetrics.density).toInt()
 
                 // Parse text colors
                 if (typedArray.hasValue(R.styleable.WordArrangementView_availableTextColor)) {
@@ -193,7 +199,7 @@ class WordArrangementView @JvmOverloads constructor(
 
     private fun createDivider() = View(context).apply {
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, DIVIDER_HEIGHT_DP.dpToPx()).apply {
-            setMargins(0, 8.dpToPx(), 0, DIVIDER_BOTTOM_MARGIN_DP.dpToPx())
+            setMargins(0, 8.dpToPx(), 0, dividerBottomMarginDp.dpToPx())
         }
         setBackgroundColor(ContextCompat.getColor(context, R.color.divider_color))
     }.also { dividerView = it }
@@ -264,6 +270,17 @@ class WordArrangementView @JvmOverloads constructor(
     fun setWordItemMargin(marginDp: Int) {
         itemMarginDp = marginDp
         refreshAllWords()
+    }
+
+    fun setDividerBottomMargin(marginDp: Int) {
+        dividerBottomMarginDp = marginDp
+        updateDividerMargin()
+    }
+
+    private fun updateDividerMargin() {
+        val layoutParams = dividerView.layoutParams as LayoutParams
+        layoutParams.setMargins(0, 8.dpToPx(), 0, dividerBottomMarginDp.dpToPx())
+        dividerView.layoutParams = layoutParams
     }
 
     // Helper functions
@@ -549,7 +566,9 @@ class WordArrangementView @JvmOverloads constructor(
 
     private fun getRootViewGroup(): ViewGroup {
         return (context as? AppCompatActivity)?.findViewById(android.R.id.content)
-            ?: this.parent as ViewGroup
+            ?: (this.rootView as? ViewGroup)
+            ?: (this.parent as? ViewGroup)
+            ?: this
     }
 
     private fun createAnimatedView(fromView: TextView, startLocation: IntArray): TextView {
@@ -842,7 +861,8 @@ class WordArrangementView @JvmOverloads constructor(
         itemSizeDp = DEFAULT_ITEM_SIZE_DP
         itemMarginDp = DEFAULT_ITEM_MARGIN_DP
         textSizeSp = DEFAULT_TEXT_SIZE_SP
-
+        dividerBottomMarginDp = DIVIDER_BOTTOM_MARGIN_DP
+        updateDividerMargin()
         refreshAllWords()
     }
 
