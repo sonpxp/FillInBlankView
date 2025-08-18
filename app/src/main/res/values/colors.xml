@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="grey">#C6C6C6</color>
+
+    <!-- Text colors -->
+    <color name="text_available_default">#A7ABC3</color>
+    <color name="text_arranged_default">#096DEF</color>
+
+    <!-- Word view background colors -->
+    <color name="word_available_stroke">#A7ABC3</color>
+    <color name="word_available_background">#EEEFF0</color>
+    <color name="word_arranged_stroke">#096DEF</color>
+    <color name="word_arranged_background">#EBF4FE</color>
+
+    <!-- UI element colors -->
+    <color name="divider_color">#E0E0E0</color>
 </resources>

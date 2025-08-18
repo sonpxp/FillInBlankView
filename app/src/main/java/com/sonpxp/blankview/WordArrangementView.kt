@@ -5,16 +5,21 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Context
-import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayout
 import com.google.android.flexbox.JustifyContent
 
@@ -24,105 +29,73 @@ class WordArrangementView @JvmOverloads constructor(
     defStyleAttr: Int = 0,
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
-    private val arrangedWordsLayout: FlexboxLayout
-    private val dividerView: View
-    private val availableWordsLayout: FlexboxLayout
+    private companion object {
+        const val ANIMATION_DURATION = 300L
+        const val ITEM_SIZE_DP = 55
+        const val ITEM_MARGIN_DP = 5
+        const val TEXT_SIZE_SP = 20f
+        const val PADDING_DP = 12
+        const val DIVIDER_HEIGHT_DP = 2
+        const val DIVIDER_BOTTOM_MARGIN_DP = 50
+        const val CORNER_RADIUS_DP = 8
+        const val STROKE_WIDTH_DP = 1
+        const val DASH_WIDTH_DP = 3
+        const val EMPTY_WORD_SYMBOL = "□"
+    }
+
+    private lateinit var arrangedWordsLayout: FlexboxLayout
+    private lateinit var dividerView: View
+    private lateinit var availableWordsLayout: FlexboxLayout
+
     private val wordItems = mutableListOf<WordItem>()
     private val arrangedWords = mutableListOf<String>()
+    private var allowEmptyWords = true
+    private var nextItemId = 0
 
-    // Animation duration
-    private val animationDuration = 300L
-
-    // Fixed square sizing
-    private val itemSize = 60.dpToPx()  // Fixed 60x60 size for all items
-
-    // Configuration options
-    private var allowEmptyWords = true  // Allow empty/whitespace words by default
-    private var nextItemId = 0  // Auto-increment ID for unique identification
-
-    data class WordItem(
-        val id: Int,  // Unique identifier for each item
-        val text: String,
-        val displayText: String,  // What to show (for empty words)
-        val originalView: TextView,
-        var placeholderView: TextView? = null,
-        var isArranged: Boolean = false,
-        var isAnimating: Boolean = false  // Prevent multiple animations
-    )
+    private val itemSize by lazy { ITEM_SIZE_DP.dpToPx() }
 
     init {
-        orientation = VERTICAL
-        layoutParams = LayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.WRAP_CONTENT
-        )
-        setPadding(16, 16, 16, 16)
-
-        // Create arranged words area (top) with flex wrap
-        arrangedWordsLayout = FlexboxLayout(context).apply {
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = 16.dpToPx()
-            }
-            justifyContent = JustifyContent.CENTER
-            flexWrap = com.google.android.flexbox.FlexWrap.WRAP
-            setPadding(16, 16, 16, 16)
-        }
-
-        // Create divider
-        dividerView = View(context).apply {
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                2.dpToPx()
-            ).apply {
-                setMargins(0, 8, 0, 16)
-            }
-            setBackgroundColor(Color.parseColor("#E0E0E0"))
-        }
-
-        // Create available words area (bottom) with flex wrap
-        availableWordsLayout = FlexboxLayout(context).apply {
-            layoutParams = LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT
-            )
-            justifyContent = JustifyContent.CENTER
-            flexWrap = com.google.android.flexbox.FlexWrap.WRAP
-            setPadding(16, 16, 16, 16)
-        }
-
-        addView(arrangedWordsLayout)
-        addView(dividerView)
-        addView(availableWordsLayout)
+        setupLayout()
     }
+
+    private fun setupLayout() {
+        orientation = VERTICAL
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        setPadding(PADDING_DP.dpToPx(), PADDING_DP.dpToPx(), PADDING_DP.dpToPx(), PADDING_DP.dpToPx())
+
+        addView(createArrangedWordsLayout())
+        addView(createDivider())
+        addView(createAvailableWordsLayout())
+    }
+
+    private fun createArrangedWordsLayout() = FlexboxLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = PADDING_DP.dpToPx()
+        }
+        justifyContent = JustifyContent.CENTER
+        flexWrap = FlexWrap.WRAP
+        setPadding(PADDING_DP.dpToPx(), PADDING_DP.dpToPx(), PADDING_DP.dpToPx(), PADDING_DP.dpToPx())
+    }.also { arrangedWordsLayout = it }
+
+    private fun createDivider() = View(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, DIVIDER_HEIGHT_DP.dpToPx()).apply {
+            setMargins(0, 8.dpToPx(), 0, DIVIDER_BOTTOM_MARGIN_DP.dpToPx())
+        }
+        setBackgroundColor(ContextCompat.getColor(context, R.color.divider_color))
+    }.also { dividerView = it }
+
+    private fun createAvailableWordsLayout() = FlexboxLayout(context).apply {
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        justifyContent = JustifyContent.CENTER
+        flexWrap = FlexWrap.WRAP
+        setPadding(PADDING_DP.dpToPx(), PADDING_DP.dpToPx(), PADDING_DP.dpToPx(), PADDING_DP.dpToPx())
+    }.also { availableWordsLayout = it }
 
     fun setWords(words: List<String>, allowEmpty: Boolean = true) {
         this.allowEmptyWords = allowEmpty
-        availableWordsLayout.removeAllViews()
-        arrangedWordsLayout.removeAllViews()
-        wordItems.clear()
-        arrangedWords.clear()
-        nextItemId = 0
+        clearAll()
 
-        // Process and validate words
-        val processedWords = words.mapIndexedNotNull { index, word ->
-            val trimmedWord = word.trim()
-
-            // Check if empty word is allowed
-            if (trimmedWord.isEmpty() && !allowEmptyWords) {
-                null  // Skip empty words if not allowed
-            } else {
-                ProcessedWord(
-                    id = nextItemId++,
-                    originalText = word,
-                    displayText = if (trimmedWord.isEmpty()) "□" else trimmedWord  // Show □ for empty
-                )
-            }
-        }
-
-        // Shuffle words for random arrangement
+        val processedWords = processWords(words)
         val shuffledWords = processedWords.shuffled()
 
         shuffledWords.forEach { processedWord ->
@@ -137,88 +110,99 @@ class WordArrangementView @JvmOverloads constructor(
             availableWordsLayout.addView(wordView)
         }
 
-        // Force layout update to ensure all views are properly positioned
-        availableWordsLayout.post {
-            // Update original view references after layout
-            for (i in 0 until availableWordsLayout.childCount) {
-                val child = availableWordsLayout.getChildAt(i) as? TextView
-                child?.let { view ->
-                    val itemId = view.tag as? Int ?: return@let
-                    val wordItem = wordItems.find { it.id == itemId }
-                    wordItem?.let {
-                        it.originalView.setOnClickListener {
-                            handleWordClick(view, itemId, false)
-                        }
-                    }
-                }
+        setupClickListeners()
+    }
+
+    private fun clearAll() {
+        availableWordsLayout.removeAllViews()
+        arrangedWordsLayout.removeAllViews()
+        wordItems.clear()
+        arrangedWords.clear()
+        nextItemId = 0
+    }
+
+    private fun processWords(words: List<String>): List<ProcessedWord> {
+        return words.mapIndexedNotNull { _, word ->
+            val trimmedWord = word.trim()
+            if (trimmedWord.isEmpty() && !allowEmptyWords) {
+                null
+            } else {
+                ProcessedWord(
+                    id = nextItemId++,
+                    originalText = word,
+                    displayText = trimmedWord.ifEmpty { EMPTY_WORD_SYMBOL }
+                )
             }
         }
     }
 
-    private data class ProcessedWord(
-        val id: Int,
-        val originalText: String,
-        val displayText: String
-    )
+    private fun setupClickListeners() {
+        availableWordsLayout.post {
+            repeat(availableWordsLayout.childCount) { i ->
+                val child = availableWordsLayout.getChildAt(i) as? TextView ?: return@repeat
+                val itemId = child.tag as? Int ?: return@repeat
+                child.setOnClickListener { handleWordClick(child, itemId, false) }
+            }
+        }
+    }
 
     private fun createWordView(text: String, isArranged: Boolean, itemId: Int): TextView {
         return TextView(context).apply {
             this.text = text
-            this.tag = itemId  // Store unique ID in tag for identification
-            textSize = 20f  // Increased to 20sp as requested
-            gravity = Gravity.CENTER
-            setSingleLine(true)
-            maxLines = 1
-            isClickable = true
-            isFocusable = true
-
-            // Fixed square size with increased margins for more spacing
-            val params = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
-                setMargins(10, 10, 10, 10)  // Increased from 6 to 10 for more spacing
-            }
-            layoutParams = params
-
-            background = if (isArranged) {
-                createWordBackground(Color.parseColor("#4CAF50"))
-            } else {
-                createWordBackground(Color.parseColor("#2196F3"))
-            }
-
-            setTextColor(Color.WHITE)
-
-            setOnClickListener {
-                handleWordClick(this, itemId, isArranged)
-            }
+            this.tag = itemId
+            setupTextViewAppearance()
+            setupTextViewLayout()
+            background = createWordBackground(isArranged)
+            setTextColor(getTextColor(isArranged))
+            setOnClickListener { handleWordClick(this, itemId, isArranged) }
         }
+    }
+
+    private fun TextView.setupTextViewAppearance() {
+        textSize = TEXT_SIZE_SP
+        gravity = Gravity.CENTER
+        isSingleLine = true
+        maxLines = 1
+        typeface = Typeface.DEFAULT_BOLD
+        isClickable = true
+        isFocusable = true
+    }
+
+    private fun TextView.setupTextViewLayout() {
+        layoutParams = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
+            setMargins(ITEM_MARGIN_DP.dpToPx(), ITEM_MARGIN_DP.dpToPx(),
+                ITEM_MARGIN_DP.dpToPx(), ITEM_MARGIN_DP.dpToPx())
+        }
+    }
+
+    private fun createWordBackground(isArranged: Boolean): LayerDrawable {
+        return if (isArranged) {
+            createLayerBackground(R.color.word_arranged_stroke, R.color.word_arranged_background)
+        } else {
+            createLayerBackground(R.color.word_available_stroke, R.color.word_available_background)
+        }
+    }
+
+    private fun getTextColor(isArranged: Boolean): Int {
+        return ContextCompat.getColor(context,
+            if (isArranged) R.color.text_arranged_default else R.color.text_available_default
+        )
     }
 
     private fun createPlaceholderView(itemId: Int): TextView {
         return TextView(context).apply {
             text = ""
-            this.tag = itemId  // Store ID for reference
+            tag = itemId
             gravity = Gravity.CENTER
-
-            // Same fixed size as word views with same spacing
-            val params = FlexboxLayout.LayoutParams(itemSize, itemSize).apply {
-                setMargins(10, 10, 10, 10)  // Increased margins to match word views
-            }
-            layoutParams = params
-
-            background = createPlaceholderBackground()
-
-            // Make placeholder visible but subtle
+            setupTextViewLayout()
+            background = createLayerBackground(R.color.word_available_stroke, R.color.word_available_background)
             alpha = 0.7f
         }
     }
 
     private fun handleWordClick(wordView: TextView, itemId: Int, isArranged: Boolean) {
         val wordItem = wordItems.find { it.id == itemId } ?: return
-
-        // Prevent clicks during animation
-        if (wordItem.isAnimating) return
-
-        // Extra check to ensure view is still valid and clickable
-        if (wordView.parent == null) return
+        if (wordItem.isAnimating || wordView.parent == null) return
 
         if (isArranged) {
             moveWordBack(wordView, itemId)
@@ -229,38 +213,22 @@ class WordArrangementView @JvmOverloads constructor(
 
     private fun moveWordUp(wordView: TextView, itemId: Int) {
         val wordItem = wordItems.find { it.id == itemId } ?: return
-
-        // Set animation flag
         wordItem.isAnimating = true
 
-        // Get start position BEFORE any layout changes
-        val startLocation = IntArray(2)
-        wordView.getLocationInWindow(startLocation)
-
-        // Create placeholder with same fixed size
-        val placeholder = createPlaceholderView(itemId)
-        val indexInParent = availableWordsLayout.indexOfChild(wordView)
-        availableWordsLayout.removeView(wordView)
-        availableWordsLayout.addView(placeholder, indexInParent)
+        val startLocation = getViewLocation(wordView)
+        val placeholder = createAndInsertPlaceholder(wordView, itemId)
         wordItem.placeholderView = placeholder
 
-        // Create new word view for arranged area
         val newWordView = createWordView(wordItem.displayText, true, itemId)
-
-        // Add to arranged area (invisible initially)
         arrangedWordsLayout.addView(newWordView)
         newWordView.alpha = 0f
 
-        // Force layout update and get end position
         arrangedWordsLayout.post {
-            val endLocation = IntArray(2)
-            newWordView.getLocationInWindow(endLocation)
-
-            // Create animation with correct positions
+            val endLocation = getViewLocation(newWordView)
             animateWordMovement(wordView, newWordView, startLocation, endLocation) {
                 wordItem.isArranged = true
                 wordItem.isAnimating = false
-                arrangedWords.add(wordItem.text)  // Add original text, not display text
+                arrangedWords.add(wordItem.text)
             }
         }
     }
@@ -268,49 +236,49 @@ class WordArrangementView @JvmOverloads constructor(
     private fun moveWordBack(wordView: TextView, itemId: Int) {
         val wordItem = wordItems.find { it.id == itemId } ?: return
         val placeholder = wordItem.placeholderView ?: return
-
-        // Set animation flag
         wordItem.isAnimating = true
 
-        // Get start position BEFORE any layout changes
-        val startLocation = IntArray(2)
-        wordView.getLocationInWindow(startLocation)
+        val startLocation = getViewLocation(wordView)
+        val endLocation = getViewLocation(placeholder)
 
-        // Get end position from placeholder
-        val endLocation = IntArray(2)
-        placeholder.getLocationInWindow(endLocation)
-
-        // Create new word view for available area
         val newWordView = createWordView(wordItem.displayText, false, itemId)
+        replacePlaceholderWithWordView(placeholder, newWordView)
+        updateWordItemReference(itemId, newWordView)
 
-        // Replace placeholder with new word view
-        val indexInParent = availableWordsLayout.indexOfChild(placeholder)
-        availableWordsLayout.removeView(placeholder)
-        availableWordsLayout.addView(newWordView, indexInParent)
-        newWordView.alpha = 0f
-
-        // Update the wordItem reference to the new view
-        wordItem.originalView.setOnClickListener(null) // Remove old listener
-        wordItems.find { it.id == itemId }?.let { item ->
-            item.originalView.setOnClickListener {
-                handleWordClick(newWordView, itemId, false)
-            }
-        }
-
-        // Force layout update then animate
         availableWordsLayout.post {
-            // Update end location after layout change
-            newWordView.getLocationInWindow(endLocation)
-
-            // Create animation
             animateWordMovement(wordView, newWordView, startLocation, endLocation) {
-                // Remove from arranged words
                 arrangedWordsLayout.removeView(wordView)
-                arrangedWords.remove(wordItem.text)  // Remove original text
+                arrangedWords.remove(wordItem.text)
                 wordItem.isArranged = false
                 wordItem.isAnimating = false
                 wordItem.placeholderView = null
             }
+        }
+    }
+
+    private fun getViewLocation(view: View): IntArray {
+        return IntArray(2).also { view.getLocationInWindow(it) }
+    }
+
+    private fun createAndInsertPlaceholder(wordView: TextView, itemId: Int): TextView {
+        val placeholder = createPlaceholderView(itemId)
+        val indexInParent = availableWordsLayout.indexOfChild(wordView)
+        availableWordsLayout.removeView(wordView)
+        availableWordsLayout.addView(placeholder, indexInParent)
+        return placeholder
+    }
+
+    private fun replacePlaceholderWithWordView(placeholder: TextView, newWordView: TextView) {
+        val indexInParent = availableWordsLayout.indexOfChild(placeholder)
+        availableWordsLayout.removeView(placeholder)
+        availableWordsLayout.addView(newWordView, indexInParent)
+        newWordView.alpha = 0f
+    }
+
+    private fun updateWordItemReference(itemId: Int, newWordView: TextView) {
+        wordItems.find { it.id == itemId }?.originalView?.setOnClickListener(null)
+        wordItems.find { it.id == itemId }?.originalView?.setOnClickListener {
+            handleWordClick(newWordView, itemId, false)
         }
     }
 
@@ -321,106 +289,127 @@ class WordArrangementView @JvmOverloads constructor(
         endLocation: IntArray,
         onComplete: () -> Unit,
     ) {
-        // Get root view to add animated view
-        val rootView =
-            (context as? AppCompatActivity)?.findViewById<ViewGroup>(android.R.id.content)
-                ?: this.parent as ViewGroup
+        val rootView = getRootViewGroup()
+        val animatedView = createAnimatedView(fromView, startLocation)
 
-        // Create animated view for transition with fixed square size
-        val animatedView = TextView(context).apply {
+        rootView.addView(animatedView)
+        hideViews(fromView, toView)
+
+        createAndStartAnimation(animatedView, startLocation, endLocation, toView, rootView, onComplete)
+    }
+
+    private fun getRootViewGroup(): ViewGroup {
+        return (context as? AppCompatActivity)?.findViewById<ViewGroup>(android.R.id.content)
+            ?: this.parent as ViewGroup
+    }
+
+    private fun createAnimatedView(fromView: TextView, startLocation: IntArray): TextView {
+        return TextView(context).apply {
             text = fromView.text
-            textSize = 20f  // Match the updated text size
+            textSize = TEXT_SIZE_SP
             gravity = Gravity.CENTER
             background = fromView.background.constantState?.newDrawable()?.mutate()
-            setTextColor(Color.WHITE)
+            setTextColor(ContextCompat.getColor(context, R.color.text_arranged_default))
             alpha = 1f
             elevation = 8.dpToPx().toFloat()
-            setSingleLine(true)
+            isSingleLine = true
             maxLines = 1
-
-            // Set exact square size and position
             layoutParams = ViewGroup.LayoutParams(itemSize, itemSize)
             x = startLocation[0].toFloat()
             y = startLocation[1].toFloat()
         }
+    }
 
-        // Add animated view to root
-        rootView.addView(animatedView)
-
-        // Hide original views
+    private fun hideViews(fromView: TextView, toView: TextView) {
         fromView.alpha = 0f
         toView.alpha = 0f
+    }
 
-        // Calculate final position
-        val finalX = endLocation[0].toFloat()
-        val finalY = endLocation[1].toFloat()
-
-        // Create animation set with improved timing
+    private fun createAndStartAnimation(
+        animatedView: TextView,
+        startLocation: IntArray,
+        endLocation: IntArray,
+        toView: TextView,
+        rootView: ViewGroup,
+        onComplete: () -> Unit
+    ) {
         val animatorSet = AnimatorSet().apply {
             playTogether(
-                ObjectAnimator.ofFloat(animatedView, "x", startLocation[0].toFloat(), finalX),
-                ObjectAnimator.ofFloat(animatedView, "y", startLocation[1].toFloat(), finalY),
+                ObjectAnimator.ofFloat(animatedView, "x", startLocation[0].toFloat(), endLocation[0].toFloat()),
+                ObjectAnimator.ofFloat(animatedView, "y", startLocation[1].toFloat(), endLocation[1].toFloat()),
                 ObjectAnimator.ofFloat(animatedView, "scaleX", 1f, 1.15f, 1f),
                 ObjectAnimator.ofFloat(animatedView, "scaleY", 1f, 1.15f, 1f),
                 ObjectAnimator.ofFloat(animatedView, "rotation", 0f, 8f, 0f)
             )
-            duration = animationDuration
-            interpolator = android.view.animation.DecelerateInterpolator(1.5f)
-
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    // Remove animated view
-                    try {
-                        rootView.removeView(animatedView)
-                    } catch (e: Exception) {
-                        // Handle case where view might already be removed
-                    }
-
-                    // Show target view with bounce effect
-                    toView.alpha = 1f
-                    toView.scaleX = 0.7f
-                    toView.scaleY = 0.7f
-                    toView.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(150)
-                        .setInterpolator(android.view.animation.OvershootInterpolator(2f))
-                        .start()
-
-                    onComplete()
-                }
-
-                override fun onAnimationCancel(animation: Animator) {
-                    // Clean up if animation is cancelled
-                    try {
-                        rootView.removeView(animatedView)
-                    } catch (e: Exception) {
-                        // Handle case where view might already be removed
-                    }
-                    onComplete()
-                }
-            })
+            duration = ANIMATION_DURATION
+            interpolator = DecelerateInterpolator(1.5f)
+            addListener(createAnimationListener(animatedView, toView, rootView, onComplete))
         }
-
         animatorSet.start()
     }
 
-    private fun createWordBackground(color: Int): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 8.dpToPx().toFloat()
-            setColor(color)
-            setStroke(2, Color.parseColor("#DEDEDE"))
+    private fun createAnimationListener(
+        animatedView: TextView,
+        toView: TextView,
+        rootView: ViewGroup,
+        onComplete: () -> Unit
+    ) = object : AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: Animator) {
+            cleanupAnimation(animatedView, rootView)
+            showTargetViewWithBounce(toView)
+            onComplete()
+        }
+
+        override fun onAnimationCancel(animation: Animator) {
+            cleanupAnimation(animatedView, rootView)
+            onComplete()
         }
     }
 
-    private fun createPlaceholderBackground(): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = 8.dpToPx().toFloat()
-            setColor(Color.parseColor("#F0F0F0"))
-            setStroke(2, Color.parseColor("#E0E0E0"), 2f, 8f) // Dashed border for placeholder
+    private fun cleanupAnimation(animatedView: TextView, rootView: ViewGroup) {
+        try {
+            rootView.removeView(animatedView)
+        } catch (e: Exception) {
+            // Handle case where view might already be removed
         }
+    }
+
+    private fun showTargetViewWithBounce(toView: TextView) {
+        toView.apply {
+            alpha = 1f
+            scaleX = 0.7f
+            scaleY = 0.7f
+            animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(150)
+                .setInterpolator(OvershootInterpolator(2f))
+                .start()
+        }
+    }
+
+    private fun createLayerBackground(strokeColorRes: Int, backgroundColorRes: Int): LayerDrawable {
+        val borderDrawable = createBorderDrawable(strokeColorRes)
+        val backgroundDrawable = createBackgroundDrawable(backgroundColorRes)
+        return LayerDrawable(arrayOf(borderDrawable, backgroundDrawable))
+    }
+
+    private fun createBorderDrawable(strokeColorRes: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = CORNER_RADIUS_DP.dpToPx().toFloat()
+        setStroke(
+            STROKE_WIDTH_DP.dpToPx(),
+            ContextCompat.getColor(context, strokeColorRes),
+            DASH_WIDTH_DP.dpToPx().toFloat(),
+            DASH_WIDTH_DP.dpToPx().toFloat()
+        )
+        setPadding(6.dpToPx(), 6.dpToPx(), 6.dpToPx(), 6.dpToPx())
+    }
+
+    private fun createBackgroundDrawable(backgroundColorRes: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = CORNER_RADIUS_DP.dpToPx().toFloat()
+        setColor(ContextCompat.getColor(context, backgroundColorRes))
     }
 
     private fun Int.dpToPx(): Int {
@@ -441,7 +430,6 @@ class WordArrangementView @JvmOverloads constructor(
         return null
     }
 
-    // Public methods
     fun getArrangedWords(): List<String> = arrangedWords.toList()
 
     fun getArrangedWordsWithIds(): List<Pair<Int, String>> {
@@ -449,39 +437,33 @@ class WordArrangementView @JvmOverloads constructor(
     }
 
     fun clearArrangedWords() {
-        // Create a copy to avoid concurrent modification
         val itemsToMoveBack = wordItems.filter { it.isArranged && !it.isAnimating }
         itemsToMoveBack.forEach { wordItem ->
-            val wordView = findWordViewInLayout(arrangedWordsLayout, wordItem.id)
-            wordView?.let { moveWordBack(it, wordItem.id) }
+            findWordViewInLayout(arrangedWordsLayout, wordItem.id)?.let { wordView ->
+                moveWordBack(wordView, wordItem.id)
+            }
         }
     }
 
-    fun isComplete(): Boolean {
-        return arrangedWords.size == wordItems.size
-    }
-
-    fun setItemSize(sizeDp: Int) {
-        // Allow customization of item size if needed
-        // You can call this before setWords() to change the default 60dp size
-    }
+    fun isComplete(): Boolean = arrangedWords.size == wordItems.size
 
     fun setAllowEmptyWords(allow: Boolean) {
         this.allowEmptyWords = allow
     }
 
-    // Debug method to check view states
-    fun debugViewStates() {
-        println("=== Debug Word Arrangement ===")
-        wordItems.forEachIndexed { index, item ->
-            println("Item $index: ID=${item.id} '${item.text}' (display:'${item.displayText}') - isArranged: ${item.isArranged}, isAnimating: ${item.isAnimating}")
-            println("  OriginalView parent: ${item.originalView.parent}")
-            println("  OriginalView clickable: ${item.originalView.isClickable}")
-        }
-        println("Available layout children: ${availableWordsLayout.childCount}")
-        println("Arranged layout children: ${arrangedWordsLayout.childCount}")
-        println("Arranged words: $arrangedWords")
-        println("Allow empty words: $allowEmptyWords")
-        println("==============================")
-    }
+    private data class WordItem(
+        val id: Int,
+        val text: String,
+        val displayText: String,
+        val originalView: TextView,
+        var placeholderView: TextView? = null,
+        var isArranged: Boolean = false,
+        var isAnimating: Boolean = false,
+    )
+
+    private data class ProcessedWord(
+        val id: Int,
+        val originalText: String,
+        val displayText: String,
+    )
 }
