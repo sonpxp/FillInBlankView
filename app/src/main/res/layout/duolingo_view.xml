@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:orientation="vertical">
+
+    <!-- Top RecyclerView with wrap_content height -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/topRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:background="@null"
+        android:clipToPadding="false"
+        android:minHeight="80dp"
+        android:overScrollMode="never"
+        android:scrollbars="none" />
+
+    <!-- Divider -->
+    <View
+        android:id="@+id/divider"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:layout_marginHorizontal="32dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="32dp"
+        android:background="#E0E0E0" />
+
+    <!-- Bottom RecyclerView with wrap_content height -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/bottomRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:background="@null"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:scrollbars="none" />
+
+</LinearLayout>

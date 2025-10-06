@@ -10,6 +10,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.sonpxp.blankview.databinding.ActivityMainBinding
+import com.sonpxp.blankview.word.ReviewMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -17,11 +18,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    private val sampleWords = listOf("1", "1", "3", "4", "5", "6", "7", "8")
-    private val correctOrder = listOf("8", "7", "6", "5", "4", "3", "1", "1")
 
-    private val sampleWords2 = (1..8).map { it.toString() }
-    private val correctOrder2 = (8 downTo 1).map { it.toString() }
+    private val correctOrder2 = listOf("8", "7", "6", "5", "4", "3", "1", "1")
+    private val sampleWords2 = listOf("1", "1", "3", "4", "5", "6", "7", "8")
+
+    val sampleWords3 = listOf("The", "weather", "is", "getting", "quite", "cold")
+    val sampleWords = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服")
+
+    val correctOrder = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服")
+    val userAnswers = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,21 +44,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadWords() = with(binding) {
-        wordArrangementView.setWords(sampleWords)
+        wordArrangementView.setWords(sampleWords.shuffled())
         tvResult.text = ""
+        tvRightAnswer.text = correctOrder.joinToString(" -> ")
     }
 
     private fun review() {
         binding.apply {
-            val userAnswers = listOf( "1", "3", "4",  "6", "5", "2")
-            val correctAnswers = listOf("1", "2", "1", "3", "4",  "6", "5",)
-
-            binding.wordArrangementView.setWords(correctAnswers)
-            //binding.wordArrangementView.reviewResults(userAnswers, correctAnswers)
+            binding.wordArrangementView.setWords(sampleWords)
 
             lifecycleScope.launch {
                 delay(1000)
-                binding.wordArrangementView.reviewResults(userAnswers, correctAnswers, WordArrangementView.ReviewMode.ALL_OR_NOTHING)
+                binding.wordArrangementView.reviewResults(userAnswers.shuffled(), correctOrder, ReviewMode.ALL_OR_NOTHING)
             }
         }
     }

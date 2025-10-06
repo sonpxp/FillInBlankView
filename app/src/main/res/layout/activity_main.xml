@@ -19,8 +19,19 @@
         android:textSize="20sp"
         android:textStyle="bold" />
 
+    <TextView
+        android:id="@+id/tv_right_answer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:gravity="center"
+        android:text="Đáp án đúng: "
+        android:layout_below="@+id/title"
+        android:textColor="#333333"
+        android:textSize="14sp"/>
+
     <!-- Word Arrangement View -->
-    <com.sonpxp.blankview.WordArrangementView
+    <com.sonpxp.blankview.word.WordArrangementView
         android:id="@+id/wordArrangementView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -34,11 +45,11 @@
         app:correctTextColor="@color/text_arranged_default"
         app:incorrectTextColor="@color/text_incorrect_default"
         app:allowEmptyWords="true"
-        app:wordTextSize="20sp"
+        app:wordTextSize="18sp"
         app:wordItemSize="50dp"
         app:wordItemMargin="5dp"
         app:animationDuration="300"
-        android:layout_below="@+id/title" />
+        android:layout_below="@+id/tv_right_answer" />
 
     <!-- Control Buttons -->
     <LinearLayout

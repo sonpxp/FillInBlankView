@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <declare-styleable name="DuolingoView">
+        <attr name="itemSize" format="dimension" />
+        <attr name="itemSpacing" format="dimension" />
+        <attr name="animationDuration2" format="integer" />
+        <attr name="dividerHeight" format="dimension" />
+        <attr name="dividerColor" format="color" />
+        <attr name="dividerMarginTop" format="dimension" />
+        <attr name="dividerMarginBottom" format="dimension" />
+        <attr name="topRecyclerMinHeight" format="dimension" />
+    </declare-styleable>
+
     <declare-styleable name="WordArrangementView">
         <!-- Background drawables -->
         <attr name="availableWordBackground" format="reference" />
