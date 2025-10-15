@@ -27,6 +27,10 @@ class TextViewFactory(
             applyBaseStyle()
             applyWordStyle(isArranged)
 
+            val hPadding = config.textPaddingHorizontal.dpToPx(context)
+            val vPadding = config.textPaddingVertical.dpToPx(context)
+            this.setPadding(hPadding, vPadding, hPadding, vPadding)
+
             onClick?.let { listener ->
                 isClickable = true
                 isFocusable = true
@@ -47,6 +51,10 @@ class TextViewFactory(
             background = backgroundFactory.getReviewBackground(isCorrect)
             setTextColor(backgroundFactory.getReviewTextColor(isCorrect))
             isClickable = false
+
+            val hPadding = config.textPaddingHorizontal.dpToPx(context)
+            val vPadding = config.textPaddingVertical.dpToPx(context)
+            this.setPadding(hPadding, vPadding, hPadding, vPadding)
         }
     }
 
@@ -58,6 +66,10 @@ class TextViewFactory(
             background = backgroundFactory.getPlaceholderBackground()
             setTextColor(Color.TRANSPARENT)
             alpha = 0.7f
+
+            val hPadding = config.textPaddingHorizontal.dpToPx(context)
+            val vPadding = config.textPaddingVertical.dpToPx(context)
+            this.setPadding(hPadding, vPadding, hPadding, vPadding)
         }
     }
 
@@ -81,9 +93,5 @@ class TextViewFactory(
     private fun TextView.applyWordStyle(isArranged: Boolean) {
         background = backgroundFactory.getWordBackground(isArranged)
         setTextColor(backgroundFactory.getTextColor(isArranged))
-
-        val hPadding = config.textPaddingHorizontal.dpToPx(context)
-        val vPadding = config.textPaddingVertical.dpToPx(context)
-        this.setPadding(hPadding, vPadding, hPadding, vPadding)
     }
 }

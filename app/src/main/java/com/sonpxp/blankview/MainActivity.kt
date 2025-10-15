@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity() {
     private val sampleWords2 = listOf("1", "1", "3", "4", "5", "6", "7", "8")
 
     val sampleWords3 = listOf("The", "weather", "is", "getting", "quite", "cold")
-    val sampleWords = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服")
+    val sampleWords = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服", "My cat loves sleeping on sofa My cat loves sleeping on sofa My cat loves sleeping on sofa")
 
     val correctOrder = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服")
     val userAnswers = listOf("天气", "越来越", "冷", "我们", "多穿", "衣服")

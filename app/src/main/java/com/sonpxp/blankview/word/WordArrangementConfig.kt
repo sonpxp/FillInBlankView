@@ -8,7 +8,7 @@ data class WordArrangementConfig(
     var textSize: Float = 20f,
     var padding: Int = 4,
     var textPaddingHorizontal: Int = 8,
-    var textPaddingVertical: Int = 0,
+    var textPaddingVertical: Int = 8,
     var dividerHeight: Int = 2,
     var dividerBottomMargin: Int = 24,
     var cornerRadius: Int = 8,
